@@ -278,13 +278,88 @@ p {
    7. FORMULAIRES GENERAUX
 ========================================= */
 
-/* À ajouter lors du développement des formulaires */
+.formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.formulaire label {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.formulaire input,
+.formulaire select,
+.formulaire textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  color: #1e293b;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.formulaire input:hover,
+.formulaire select:hover,
+.formulaire textarea:hover {
+  border-color: #94a3b8;
+}
+
+.formulaire input:focus,
+.formulaire select:focus,
+.formulaire textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
 
 /* =========================================
    8. BOUTONS
 ========================================= */
 
-/* À ajouter lors du développement des boutons */
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.bouton:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.bouton:active {
+  transform: translateY(0);
+}
+
+.bouton.petit {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.bouton-danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.bouton-danger:hover {
+  background: #b91c1c;
+}
 
 /* =========================================
    9. TABLEAUX
@@ -477,8 +552,16 @@ tbody tr:last-child td {
     padding: 18px;
   }
 
+  .formulaire {
+    max-width: 100%;
+  }
+
   .table-responsive table {
     min-width: 650px;
+  }
+
+  .actions-facture {
+    gap: 8px;
   }
 
   .pied-page {

@@ -3,11 +3,13 @@ import { useState } from "react";
 import Menu from "./components/Menu";
 import Accueil from "./pages/Accueil";
 import Clients from "./pages/Clients";
+import Factures from "./pages/Factures";
 
 import {
   clientsInitiaux,
   facturesInitiales,
   devisInitiaux,
+  paiementsInitiaux,
 } from "./data/data";
 
 import "./App.css";
@@ -16,8 +18,9 @@ function App() {
   const [pageActive, setPageActive] = useState("Accueil");
 
   const [clients, setClients] = useState(clientsInitiaux);
-  const [factures] = useState(facturesInitiales);
+  const [factures, setFactures] = useState(facturesInitiales);
   const [devis] = useState(devisInitiaux);
+  const [paiements] = useState(paiementsInitiaux);
 
   // Temporary user for testing the navigation menu
   const utilisateurDemo = {
@@ -33,11 +36,9 @@ function App() {
   }
 
   function supprimerClient(id) {
-    const clientUtilise = factures.some(
-      (facture) => facture.clientId === id
-    ) || devis.some(
-      (item) => item.clientId === id
-    );
+    const clientUtilise =
+      factures.some((facture) => facture.clientId === id) ||
+      devis.some((item) => item.clientId === id);
 
     if (clientUtilise) {
       alert(
@@ -59,6 +60,55 @@ function App() {
     );
   }
 
+  function ajouterFacture(facture) {
+    setFactures((anciennesFactures) => [...anciennesFactures, facture]);
+  }
+
+  function changerStatutFacture(id, nouveauStatut) {
+    setFactures((anciennesFactures) =>
+      anciennesFactures.map((facture) =>
+        facture.id === id ? { ...facture, statut: nouveauStatut } : facture
+      )
+    );
+  }
+
+  function modifierFacture(id, donnees) {
+    setFactures((anciennesFactures) =>
+      anciennesFactures.map((facture) =>
+        facture.id === id
+          ? { ...facture, ...donnees }
+          : facture
+      )
+    );
+  }
+
+  function supprimerFacture(id) {
+    const facture = factures.find((f) => f.id === id);
+
+    if (!facture) {
+      return;
+    }
+
+    if (paiements.some((p) => p.factureId === id)) {
+      alert(
+        "Impossible de supprimer cette facture : elle possède un paiement associé."
+      );
+      return;
+    }
+
+    const confirmation = window.confirm(
+      `Voulez-vous vraiment supprimer la facture ${facture.numero} ?`
+    );
+
+    if (!confirmation) {
+      return;
+    }
+
+    setFactures((anciennesFactures) =>
+      anciennesFactures.filter((f) => f.id !== id)
+    );
+  }
+
   function afficherPage() {
     switch (pageActive) {
       case "Accueil":
@@ -76,6 +126,18 @@ function App() {
             clients={clients}
             ajouterClient={ajouterClient}
             supprimerClient={supprimerClient}
+          />
+        );
+
+      case "Factures":
+        return (
+          <Factures
+            factures={factures}
+            clients={clients}
+            ajouterFacture={ajouterFacture}
+            changerStatutFacture={changerStatutFacture}
+            modifierFacture={modifierFacture}
+            supprimerFacture={supprimerFacture}
           />
         );
 

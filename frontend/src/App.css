@@ -34,12 +34,8 @@
 }
 
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* =========================================
@@ -417,7 +413,29 @@ tbody tr:last-child td {
    10. ACTIONS DES FACTURES
 ========================================= */
 
-/* À ajouter lors du développement des factures */
+.actions-facture {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.actions-facture .bouton {
+  flex-shrink: 0;
+  margin: 0;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+.actions-facture .bouton-danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.actions-facture .bouton-danger:hover {
+  background: #b91c1c;
+}
 
 /* =========================================
    11. BADGES DE STATUT

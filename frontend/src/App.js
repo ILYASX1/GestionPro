@@ -4,6 +4,7 @@ import Menu from "./components/Menu";
 import Accueil from "./pages/Accueil";
 import Clients from "./pages/Clients";
 import Factures from "./pages/Factures";
+import Devis from "./pages/Devis";
 
 import {
   clientsInitiaux,
@@ -19,7 +20,7 @@ function App() {
 
   const [clients, setClients] = useState(clientsInitiaux);
   const [factures, setFactures] = useState(facturesInitiales);
-  const [devis] = useState(devisInitiaux);
+  const [devis, setDevis] = useState(devisInitiaux);
   const [paiements] = useState(paiementsInitiaux);
 
   // Temporary user for testing the navigation menu
@@ -67,7 +68,9 @@ function App() {
   function changerStatutFacture(id, nouveauStatut) {
     setFactures((anciennesFactures) =>
       anciennesFactures.map((facture) =>
-        facture.id === id ? { ...facture, statut: nouveauStatut } : facture
+        facture.id === id
+          ? { ...facture, statut: nouveauStatut }
+          : facture
       )
     );
   }
@@ -109,6 +112,52 @@ function App() {
     );
   }
 
+  // Gestion des devis
+
+  function ajouterDevis(nouveauDevis) {
+    setDevis((anciensDevis) => [...anciensDevis, nouveauDevis]);
+  }
+
+  function changerStatutDevis(id, nouveauStatut) {
+    setDevis((anciensDevis) =>
+      anciensDevis.map((item) =>
+        item.id === id
+          ? { ...item, statut: nouveauStatut }
+          : item
+      )
+    );
+  }
+
+  function modifierDevis(id, donnees) {
+    setDevis((anciensDevis) =>
+      anciensDevis.map((item) =>
+        item.id === id
+          ? { ...item, ...donnees }
+          : item
+      )
+    );
+  }
+
+  function supprimerDevis(id) {
+    const item = devis.find((d) => d.id === id);
+
+    if (!item) {
+      return;
+    }
+
+    const confirmation = window.confirm(
+      `Voulez-vous vraiment supprimer le devis ${item.numero} ?`
+    );
+
+    if (!confirmation) {
+      return;
+    }
+
+    setDevis((anciensDevis) =>
+      anciensDevis.filter((d) => d.id !== id)
+    );
+  }
+
   function afficherPage() {
     switch (pageActive) {
       case "Accueil":
@@ -138,6 +187,18 @@ function App() {
             changerStatutFacture={changerStatutFacture}
             modifierFacture={modifierFacture}
             supprimerFacture={supprimerFacture}
+          />
+        );
+
+      case "Devis":
+        return (
+          <Devis
+            devis={devis}
+            clients={clients}
+            ajouterDevis={ajouterDevis}
+            changerStatutDevis={changerStatutDevis}
+            modifierDevis={modifierDevis}
+            supprimerDevis={supprimerDevis}
           />
         );
 

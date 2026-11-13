@@ -5,6 +5,7 @@ import Accueil from "./pages/Accueil";
 import Clients from "./pages/Clients";
 import Factures from "./pages/Factures";
 import Devis from "./pages/Devis";
+import Paiements from "./pages/Paiements";
 
 import {
   clientsInitiaux,
@@ -21,7 +22,7 @@ function App() {
   const [clients, setClients] = useState(clientsInitiaux);
   const [factures, setFactures] = useState(facturesInitiales);
   const [devis, setDevis] = useState(devisInitiaux);
-  const [paiements] = useState(paiementsInitiaux);
+  const [paiements, setPaiements] = useState(paiementsInitiaux);
 
   // Temporary user for testing the navigation menu
   const utilisateurDemo = {
@@ -31,6 +32,8 @@ function App() {
   function deconnecter() {
     alert("Déconnexion");
   }
+
+  // Gestion des clients
 
   function ajouterClient(client) {
     setClients((anciensClients) => [...anciensClients, client]);
@@ -61,8 +64,13 @@ function App() {
     );
   }
 
+  // Gestion des factures
+
   function ajouterFacture(facture) {
-    setFactures((anciennesFactures) => [...anciennesFactures, facture]);
+    setFactures((anciennesFactures) => [
+      ...anciennesFactures,
+      facture,
+    ]);
   }
 
   function changerStatutFacture(id, nouveauStatut) {
@@ -115,7 +123,10 @@ function App() {
   // Gestion des devis
 
   function ajouterDevis(nouveauDevis) {
-    setDevis((anciensDevis) => [...anciensDevis, nouveauDevis]);
+    setDevis((anciensDevis) => [
+      ...anciensDevis,
+      nouveauDevis,
+    ]);
   }
 
   function changerStatutDevis(id, nouveauStatut) {
@@ -158,6 +169,70 @@ function App() {
     );
   }
 
+  // Gestion des paiements
+
+  function ajouterPaiement(paiement) {
+    setPaiements((anciensPaiements) => [
+      ...anciensPaiements,
+      paiement,
+    ]);
+  }
+
+  function modifierPaiement(id, donnees) {
+    const paiement = paiements.find((p) => p.id === id);
+
+    if (!paiement) {
+      return;
+    }
+
+    const facture = factures.find(
+      (f) => f.id === paiement.factureId
+    );
+
+    if (
+      !facture ||
+      Number(donnees.montant) !== Number(facture.montant)
+    ) {
+      alert("Le montant doit correspondre au total de la facture.");
+      return;
+    }
+
+    setPaiements((anciensPaiements) =>
+      anciensPaiements.map((p) =>
+        p.id === id ? { ...p, ...donnees } : p
+      )
+    );
+  }
+
+  function supprimerPaiement(id) {
+    const paiement = paiements.find((p) => p.id === id);
+
+    if (!paiement) {
+      return;
+    }
+
+    const autrePaiement = paiements.some(
+      (p) =>
+        p.id !== id && p.factureId === paiement.factureId
+    );
+
+    setPaiements((anciensPaiements) =>
+      anciensPaiements.filter((p) => p.id !== id)
+    );
+
+    if (!autrePaiement) {
+      setFactures((anciennesFactures) =>
+        anciennesFactures.map((facture) =>
+          facture.id === paiement.factureId
+            ? { ...facture, statut: "En attente" }
+            : facture
+        )
+      );
+    }
+  }
+
+  // Affichage des pages
+
   function afficherPage() {
     switch (pageActive) {
       case "Accueil":
@@ -199,6 +274,19 @@ function App() {
             changerStatutDevis={changerStatutDevis}
             modifierDevis={modifierDevis}
             supprimerDevis={supprimerDevis}
+          />
+        );
+
+      case "Paiements":
+        return (
+          <Paiements
+            paiements={paiements}
+            factures={factures}
+            clients={clients}
+            ajouterPaiement={ajouterPaiement}
+            changerStatutFacture={changerStatutFacture}
+            modifierPaiement={modifierPaiement}
+            supprimerPaiement={supprimerPaiement}
           />
         );
 

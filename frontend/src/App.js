@@ -1,11 +1,8 @@
 
 import { useState } from "react";
 import Menu from "./components/Menu";
-import Accueil from "./pages/Accueil";
-import Clients from "./pages/Clients";
-import Factures from "./pages/Factures";
-import Devis from "./pages/Devis";
-import Paiements from "./pages/Paiements";
+import Connexion from "./pages/Connexion";
+import Inscription from "./pages/Inscription.js";
 
 import {
   clientsInitiaux,
@@ -13,6 +10,13 @@ import {
   devisInitiaux,
   paiementsInitiaux,
 } from "./data/data";
+
+import Accueil from "./pages/Accueil";
+import Clients from "./pages/Clients";
+import Factures from "./pages/Factures";
+import Devis from "./pages/Devis";
+import Paiements from "./pages/Paiements";
+import Relances from "./pages/Relances";
 
 import "./App.css";
 
@@ -24,13 +28,53 @@ function App() {
   const [devis, setDevis] = useState(devisInitiaux);
   const [paiements, setPaiements] = useState(paiementsInitiaux);
 
-  // Temporary user for testing the navigation menu
-  const utilisateurDemo = {
-    nom: "Utilisateur",
-  };
+  const [pageAuth, setPageAuth] = useState("Connexion");
+  const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
+  const [comptes, setComptes] = useState([]);
+
+  // Gestion de l'authentification
+
+  function inscrire(nouveauCompte) {
+    const emailExiste = comptes.some(
+      (compte) =>
+        compte.email.toLowerCase() === nouveauCompte.email.toLowerCase()
+    );
+
+    if (emailExiste) {
+      alert("Cette adresse email possède déjà un compte.");
+      return;
+    }
+
+    setComptes((anciensComptes) => [...anciensComptes, nouveauCompte]);
+
+    alert("Compte créé avec succès. Vous pouvez maintenant vous connecter.");
+
+    setPageAuth("Connexion");
+  }
+
+  function connecter(informations) {
+    const compte = comptes.find(
+      (item) =>
+        item.email.toLowerCase() === informations.email.trim().toLowerCase() &&
+        item.motDePasse === informations.motDePasse
+    );
+
+    if (!compte) {
+      alert("Email ou mot de passe incorrect.");
+      return;
+    }
+
+    setUtilisateurConnecte({
+      nom: compte.nom,
+      email: compte.email,
+    });
+
+    setPageActive("Accueil");
+  }
 
   function deconnecter() {
-    alert("Déconnexion");
+    setUtilisateurConnecte(null);
+    setPageAuth("Connexion");
   }
 
   // Gestion des clients
@@ -290,17 +334,53 @@ function App() {
           />
         );
 
+      case "Relances":
+        return (
+          <Relances
+            factures={factures}
+            clients={clients}
+          />
+        );
+
       default:
         return <h1>{pageActive}</h1>;
     }
   }
+
+  // Affichage de la connexion ou de l'inscription
+
+  if (!utilisateurConnecte) {
+    return (
+      <div className="application">
+        <main className="contenu">
+          {pageAuth === "Connexion" ? (
+            <Connexion
+              connecter={connecter}
+              allerInscription={() => setPageAuth("Inscription")}
+            />
+          ) : (
+            <Inscription
+              inscrire={inscrire}
+              allerConnexion={() => setPageAuth("Connexion")}
+            />
+          )}
+        </main>
+
+        <footer className="pied-page">
+          GestionPro — Application de suivi des factures et des devis
+        </footer>
+      </div>
+    );
+  }
+
+  // Application principale
 
   return (
     <div className="application">
       <Menu
         pageActive={pageActive}
         changerPage={setPageActive}
-        utilisateur={utilisateurDemo}
+        utilisateur={utilisateurConnecte}
         deconnecter={deconnecter}
       />
 

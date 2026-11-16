@@ -3,8 +3,8 @@ function Menu({ pageActive, changerPage, utilisateur, deconnecter }) {
   const pages = [
     { id: "Accueil", nom: "Accueil" },
     { id: "Clients", nom: "Clients" },
-    { id: "Factures", nom: "Factures" },
     { id: "Devis", nom: "Devis" },
+    { id: "Factures", nom: "Factures" },
     { id: "Paiements", nom: "Paiements" },
     { id: "Relances", nom: "Relances" },
   ];

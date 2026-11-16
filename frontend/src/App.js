@@ -1,8 +1,9 @@
 
 import { useState } from "react";
+
 import Menu from "./components/Menu";
 import Connexion from "./pages/Connexion";
-import Inscription from "./pages/Inscription.js";
+import Inscription from "./pages/Inscription";
 
 import {
   clientsInitiaux,
@@ -22,7 +23,6 @@ import "./App.css";
 
 function App() {
   const [pageActive, setPageActive] = useState("Accueil");
-
   const [clients, setClients] = useState(clientsInitiaux);
   const [factures, setFactures] = useState(facturesInitiales);
   const [devis, setDevis] = useState(devisInitiaux);
@@ -32,8 +32,54 @@ function App() {
   const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
   const [comptes, setComptes] = useState([]);
 
-  // Gestion de l'authentification
+  // Calcul du statut d'une facture selon ses paiements
+  function calculerStatutFacture(factureId, listePaiements) {
+    const facture = factures.find((f) => f.id === factureId);
 
+    if (!facture) {
+      return "En attente";
+    }
+
+    const totalPaye = listePaiements
+      .filter((p) => p.factureId === factureId)
+      .reduce((total, p) => total + Number(p.montant), 0);
+
+    if (totalPaye >= Number(facture.montant)) {
+      return "Payée";
+    }
+
+    if (totalPaye > 0) {
+      return "Partiellement payée";
+    }
+
+    return "En attente";
+  }
+
+  function actualiserStatutFacture(factureId, listePaiements) {
+    const facture = factures.find((f) => f.id === factureId);
+
+    if (!facture) return;
+
+    const totalPaye = listePaiements
+      .filter((p) => p.factureId === factureId)
+      .reduce((total, p) => total + Number(p.montant), 0);
+
+    let nouveauStatut = "En attente";
+
+    if (totalPaye >= Number(facture.montant)) {
+      nouveauStatut = "Payée";
+    } else if (totalPaye > 0) {
+      nouveauStatut = "Partiellement payée";
+    }
+
+    setFactures((anciennesFactures) =>
+      anciennesFactures.map((f) =>
+        f.id === factureId ? { ...f, statut: nouveauStatut } : f
+      )
+    );
+  }
+
+  // Gestion de l'authentification
   function inscrire(nouveauCompte) {
     const emailExiste = comptes.some(
       (compte) =>
@@ -46,9 +92,7 @@ function App() {
     }
 
     setComptes((anciensComptes) => [...anciensComptes, nouveauCompte]);
-
     alert("Compte créé avec succès. Vous pouvez maintenant vous connecter.");
-
     setPageAuth("Connexion");
   }
 
@@ -78,7 +122,6 @@ function App() {
   }
 
   // Gestion des clients
-
   function ajouterClient(client) {
     setClients((anciensClients) => [...anciensClients, client]);
   }
@@ -99,9 +142,7 @@ function App() {
       "Voulez-vous vraiment supprimer ce client ?"
     );
 
-    if (!confirmation) {
-      return;
-    }
+    if (!confirmation) return;
 
     setClients((anciensClients) =>
       anciensClients.filter((client) => client.id !== id)
@@ -109,12 +150,59 @@ function App() {
   }
 
   // Gestion des factures
-
   function ajouterFacture(facture) {
     setFactures((anciennesFactures) => [
       ...anciennesFactures,
       facture,
     ]);
+  }
+
+  function convertirDevisEnFacture(id) {
+    const devisSelectionne = devis.find((item) => item.id === id);
+
+    if (!devisSelectionne) return;
+
+    if (devisSelectionne.statut !== "Accepté") {
+      alert("Seuls les devis acceptés peuvent être convertis.");
+      return;
+    }
+
+    if (devisSelectionne.factureId) {
+      alert("Ce devis a déjà été converti en facture.");
+      return;
+    }
+
+    const dateActuelle = new Date().toISOString().slice(0, 10);
+    const nouvelId = Date.now();
+
+    const nouvelleFacture = {
+      id: nouvelId,
+      numero: `FAC-${nouvelId.toString().slice(-6)}`,
+      clientId: devisSelectionne.clientId,
+      montant: devisSelectionne.montant,
+      date: dateActuelle,
+      statut: "En attente",
+      devisId: devisSelectionne.id,
+    };
+
+    setFactures((anciennesFactures) => [
+      ...anciennesFactures,
+      nouvelleFacture,
+    ]);
+
+    setDevis((anciensDevis) =>
+      anciensDevis.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              statut: "Converti",
+              factureId: nouvelleFacture.id,
+            }
+          : item
+      )
+    );
+
+    alert("Le devis a été converti en facture avec succès.");
   }
 
   function changerStatutFacture(id, nouveauStatut) {
@@ -140,9 +228,7 @@ function App() {
   function supprimerFacture(id) {
     const facture = factures.find((f) => f.id === id);
 
-    if (!facture) {
-      return;
-    }
+    if (!facture) return;
 
     if (paiements.some((p) => p.factureId === id)) {
       alert(
@@ -155,9 +241,7 @@ function App() {
       `Voulez-vous vraiment supprimer la facture ${facture.numero} ?`
     );
 
-    if (!confirmation) {
-      return;
-    }
+    if (!confirmation) return;
 
     setFactures((anciennesFactures) =>
       anciennesFactures.filter((f) => f.id !== id)
@@ -165,7 +249,6 @@ function App() {
   }
 
   // Gestion des devis
-
   function ajouterDevis(nouveauDevis) {
     setDevis((anciensDevis) => [
       ...anciensDevis,
@@ -196,7 +279,12 @@ function App() {
   function supprimerDevis(id) {
     const item = devis.find((d) => d.id === id);
 
-    if (!item) {
+    if (!item) return;
+
+    if (item.factureId) {
+      alert(
+        "Impossible de supprimer ce devis : il a déjà été converti en facture."
+      );
       return;
     }
 
@@ -204,9 +292,7 @@ function App() {
       `Voulez-vous vraiment supprimer le devis ${item.numero} ?`
     );
 
-    if (!confirmation) {
-      return;
-    }
+    if (!confirmation) return;
 
     setDevis((anciensDevis) =>
       anciensDevis.filter((d) => d.id !== id)
@@ -214,69 +300,90 @@ function App() {
   }
 
   // Gestion des paiements
-
   function ajouterPaiement(paiement) {
-    setPaiements((anciensPaiements) => [
-      ...anciensPaiements,
-      paiement,
-    ]);
+    const facture = factures.find(
+      (f) => f.id === paiement.factureId
+    );
+
+    if (!facture) {
+      alert("Facture introuvable.");
+      return;
+    }
+
+    const totalDejaPaye = paiements
+      .filter((p) => p.factureId === paiement.factureId)
+      .reduce((total, p) => total + Number(p.montant), 0);
+
+    const montantRestant = Number(facture.montant) - totalDejaPaye;
+
+    if (
+      Number(paiement.montant) <= 0 ||
+      Number(paiement.montant) > montantRestant
+    ) {
+      alert(`Le montant ne peut pas dépasser le reste à payer : ${montantRestant} DH.`);
+      return;
+    }
+
+    const nouveauxPaiements = [...paiements, paiement];
+
+    setPaiements(nouveauxPaiements);
+    actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
   }
 
   function modifierPaiement(id, donnees) {
     const paiement = paiements.find((p) => p.id === id);
 
-    if (!paiement) {
-      return;
-    }
+    if (!paiement) return;
 
     const facture = factures.find(
       (f) => f.id === paiement.factureId
     );
 
-    if (
-      !facture ||
-      Number(donnees.montant) !== Number(facture.montant)
-    ) {
-      alert("Le montant doit correspondre au total de la facture.");
+    if (!facture) {
+      alert("La facture associée à ce paiement est introuvable.");
       return;
     }
 
-    setPaiements((anciensPaiements) =>
-      anciensPaiements.map((p) =>
-        p.id === id ? { ...p, ...donnees } : p
+    const totalAutresPaiements = paiements
+      .filter(
+        (p) =>
+          p.factureId === paiement.factureId &&
+          p.id !== id
       )
+      .reduce((total, p) => total + Number(p.montant), 0);
+
+    const nouveauMontant = Number(donnees.montant);
+
+    if (
+      nouveauMontant <= 0 ||
+      totalAutresPaiements + nouveauMontant > Number(facture.montant)
+    ) {
+      const montantMaximum = Number(facture.montant) - totalAutresPaiements;
+
+      alert(`Le montant maximum autorisé pour ce paiement est de ${montantMaximum} DH.`);
+      return;
+    }
+
+    const nouveauxPaiements = paiements.map((p) =>
+      p.id === id ? { ...p, ...donnees, montant: nouveauMontant } : p
     );
+
+    setPaiements(nouveauxPaiements);
+    actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
   }
 
   function supprimerPaiement(id) {
     const paiement = paiements.find((p) => p.id === id);
 
-    if (!paiement) {
-      return;
-    }
+    if (!paiement) return;
 
-    const autrePaiement = paiements.some(
-      (p) =>
-        p.id !== id && p.factureId === paiement.factureId
-    );
+    const nouveauxPaiements = paiements.filter((p) => p.id !== id);
 
-    setPaiements((anciensPaiements) =>
-      anciensPaiements.filter((p) => p.id !== id)
-    );
-
-    if (!autrePaiement) {
-      setFactures((anciennesFactures) =>
-        anciennesFactures.map((facture) =>
-          facture.id === paiement.factureId
-            ? { ...facture, statut: "En attente" }
-            : facture
-        )
-      );
-    }
+    setPaiements(nouveauxPaiements);
+    actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
   }
 
   // Affichage des pages
-
   function afficherPage() {
     switch (pageActive) {
       case "Accueil":
@@ -297,18 +404,6 @@ function App() {
           />
         );
 
-      case "Factures":
-        return (
-          <Factures
-            factures={factures}
-            clients={clients}
-            ajouterFacture={ajouterFacture}
-            changerStatutFacture={changerStatutFacture}
-            modifierFacture={modifierFacture}
-            supprimerFacture={supprimerFacture}
-          />
-        );
-
       case "Devis":
         return (
           <Devis
@@ -318,6 +413,18 @@ function App() {
             changerStatutDevis={changerStatutDevis}
             modifierDevis={modifierDevis}
             supprimerDevis={supprimerDevis}
+            convertirDevisEnFacture={convertirDevisEnFacture}
+          />
+        );
+
+      case "Factures":
+        return (
+          <Factures
+            factures={factures}
+            clients={clients}
+            ajouterFacture={ajouterFacture}
+            modifierFacture={modifierFacture}
+            supprimerFacture={supprimerFacture}
           />
         );
 
@@ -328,7 +435,6 @@ function App() {
             factures={factures}
             clients={clients}
             ajouterPaiement={ajouterPaiement}
-            changerStatutFacture={changerStatutFacture}
             modifierPaiement={modifierPaiement}
             supprimerPaiement={supprimerPaiement}
           />
@@ -348,7 +454,6 @@ function App() {
   }
 
   // Affichage de la connexion ou de l'inscription
-
   if (!utilisateurConnecte) {
     return (
       <div className="application">
@@ -374,7 +479,6 @@ function App() {
   }
 
   // Application principale
-
   return (
     <div className="application">
       <Menu

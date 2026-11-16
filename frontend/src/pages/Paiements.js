@@ -6,7 +6,6 @@ function Paiements({
   factures,
   clients,
   ajouterPaiement,
-  changerStatutFacture,
   modifierPaiement,
   supprimerPaiement,
 }) {
@@ -16,11 +15,40 @@ function Paiements({
   const [mode, setMode] = useState("Espèces");
   const [paiementEnCours, setPaiementEnCours] = useState(null);
 
+  function totalPaye(factureId, paiementIgnoreId = null) {
+    return paiements
+      .filter(
+        (p) =>
+          p.factureId === factureId &&
+          p.id !== paiementIgnoreId
+      )
+      .reduce((total, p) => total + Number(p.montant), 0);
+  }
+
+  function montantRestant(facture) {
+    return Math.max(
+      0,
+      Number(facture.montant) - totalPaye(facture.id)
+    );
+  }
+
   const facturesEnAttente = factures.filter(
-    (facture) =>
-      facture.statut !== "Payée" &&
-      !paiements.some((p) => p.factureId === facture.id)
+    (facture) => montantRestant(facture) > 0
   );
+
+  const factureSelectionnee = paiementEnCours
+    ? factures.find((f) => f.id === paiementEnCours.factureId)
+    : factures.find((f) => f.id === Number(factureId));
+
+  const montantMaximum = factureSelectionnee
+    ? paiementEnCours
+      ? Math.max(
+          0,
+          Number(factureSelectionnee.montant) -
+            totalPaye(factureSelectionnee.id, paiementEnCours.id)
+        )
+      : montantRestant(factureSelectionnee)
+    : 0;
 
   function reinitialiserFormulaire() {
     setFactureId("");
@@ -33,36 +61,28 @@ function Paiements({
   function gererPaiement(e) {
     e.preventDefault();
 
-    if (!date || Number(montant) <= 0) {
+    const montantSaisi = Number(montant);
+
+    if (!date || !Number.isFinite(montantSaisi) || montantSaisi <= 0) {
       alert("Veuillez saisir un montant valide et une date.");
       return;
     }
 
-    if (paiementEnCours) {
-      const facture = factures.find(
-        (f) => f.id === paiementEnCours.factureId
+    if (montantSaisi > montantMaximum) {
+      alert(
+        `Le montant dépasse le reste à payer. Montant maximum : ${montantMaximum} DH.`
       );
+      return;
+    }
 
-      if (!facture) {
-        alert("La facture associée à ce paiement est introuvable.");
-        return;
-      }
-
-      if (Number(montant) !== Number(facture.montant)) {
-        alert(
-          "Pour ce projet, le montant du paiement doit être égal au montant total de la facture."
-        );
-        return;
-      }
-
+    if (paiementEnCours) {
       modifierPaiement(paiementEnCours.id, {
-        montant: Number(montant),
+        montant: montantSaisi,
         date,
         mode,
       });
 
       reinitialiserFormulaire();
-      alert("Paiement modifié avec succès.");
       return;
     }
 
@@ -75,32 +95,15 @@ function Paiements({
       return;
     }
 
-    if (
-      paiements.some((p) => p.factureId === facture.id) ||
-      facture.statut === "Payée"
-    ) {
-      alert("Cette facture possède déjà un paiement ou est déjà payée.");
-      return;
-    }
-
-    if (Number(montant) !== Number(facture.montant)) {
-      alert(
-        "Pour simplifier ce projet, le paiement doit couvrir le montant total de la facture."
-      );
-      return;
-    }
-
     ajouterPaiement({
       id: Date.now(),
       factureId: facture.id,
-      montant: Number(montant),
+      montant: montantSaisi,
       date,
       mode,
     });
 
-    changerStatutFacture(facture.id, "Payée");
     reinitialiserFormulaire();
-    alert("Paiement enregistré avec succès.");
   }
 
   function commencerModification(paiement) {
@@ -122,9 +125,7 @@ function Paiements({
       } ?`
     );
 
-    if (!confirmation) {
-      return;
-    }
+    if (!confirmation) return;
 
     supprimerPaiement(paiement.id);
 
@@ -161,15 +162,11 @@ function Paiements({
               <div>
                 <label>Facture associée</label>
                 <p>
-                  {(() => {
-                    const facture = factures.find(
-                      (f) => f.id === paiementEnCours.factureId
-                    );
-
-                    return facture
-                      ? `${facture.numero} — ${nomClient(facture.clientId)}`
-                      : "Facture introuvable";
-                  })()}
+                  {factureSelectionnee
+                    ? `${factureSelectionnee.numero} — ${nomClient(
+                        factureSelectionnee.clientId
+                      )}`
+                    : "Facture introuvable"}
                 </p>
               </div>
             ) : (
@@ -183,7 +180,7 @@ function Paiements({
                   );
 
                   setMontant(
-                    facture ? String(facture.montant) : ""
+                    facture ? String(montantRestant(facture)) : ""
                   );
                 }}
                 required
@@ -193,15 +190,23 @@ function Paiements({
                 {facturesEnAttente.map((facture) => (
                   <option key={facture.id} value={facture.id}>
                     {facture.numero} — {nomClient(facture.clientId)} —{" "}
-                    {facture.montant} DH
+                    Reste : {montantRestant(facture)} DH
                   </option>
                 ))}
               </select>
             )}
 
+            {factureSelectionnee && (
+              <p>
+                Montant restant à payer :{" "}
+                <strong>{montantMaximum} DH</strong>
+              </p>
+            )}
+
             <input
               type="number"
               min="0.01"
+              max={montantMaximum}
               step="0.01"
               placeholder="Montant en DH"
               value={montant}
@@ -271,11 +276,13 @@ function Paiements({
                 return (
                   <tr key={paiement.id}>
                     <td>{facture ? facture.numero : "Inconnue"}</td>
+
                     <td>
                       {facture
                         ? nomClient(facture.clientId)
                         : "Inconnu"}
                     </td>
+
                     <td>{paiement.montant} DH</td>
                     <td>{paiement.date}</td>
                     <td>{paiement.mode}</td>

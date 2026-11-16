@@ -5,7 +5,6 @@ function Factures({
   factures,
   clients,
   ajouterFacture,
-  changerStatutFacture,
   modifierFacture,
   supprimerFacture,
 }) {
@@ -71,6 +70,7 @@ function Factures({
   return (
     <section>
       <h1>Gestion des factures</h1>
+
       <p className="sous-titre">
         Créez, modifiez et suivez vos factures.
       </p>
@@ -90,6 +90,7 @@ function Factures({
               required
             >
               <option value="">Choisir un client</option>
+
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.nom}
@@ -185,23 +186,6 @@ function Factures({
                         onClick={() => supprimerFacture(facture.id)}
                       >
                         Supprimer
-                      </button>
-
-                      <button
-                        type="button"
-                        className="bouton petit"
-                        onClick={() =>
-                          changerStatutFacture(
-                            facture.id,
-                            facture.statut === "Payée"
-                              ? "En attente"
-                              : "Payée"
-                          )
-                        }
-                      >
-                        {facture.statut === "Payée"
-                          ? "Remettre en attente"
-                          : "Marquer payée"}
                       </button>
                     </div>
                   </td>

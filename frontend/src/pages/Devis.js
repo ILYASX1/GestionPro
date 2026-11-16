@@ -8,6 +8,7 @@ function Devis({
   changerStatutDevis,
   modifierDevis,
   supprimerDevis,
+  convertirDevisEnFacture,
 }) {
   const [clientId, setClientId] = useState("");
   const [montant, setMontant] = useState("");
@@ -60,9 +61,9 @@ function Devis({
   }
 
   function commencerModification(item) {
-    if (item.statut === "Envoyé") {
+    if (item.statut !== "En attente") {
       alert(
-        "Ce devis a déjà été envoyé. Pour cette version, seuls les devis en attente peuvent être modifiés."
+        "Seuls les devis en attente peuvent être modifiés."
       );
       return;
     }
@@ -74,6 +75,11 @@ function Devis({
   }
 
   function gererSuppression(item) {
+    if (item.factureId || item.statut === "Converti") {
+      alert("Impossible de supprimer un devis déjà converti en facture.");
+      return;
+    }
+
     if (typeof supprimerDevis !== "function") {
       alert("La fonction de suppression n'est pas encore configurée.");
       return;
@@ -99,9 +105,46 @@ function Devis({
     alert("Le devis a été marqué comme envoyé (simulation).");
   }
 
+  function accepterDevis(id) {
+    changerStatutDevis(id, "Accepté");
+    alert("Le devis a été accepté avec succès.");
+  }
+
+  function convertirDevis(id) {
+    if (typeof convertirDevisEnFacture !== "function") {
+      alert("La conversion en facture n'est pas configurée.");
+      return;
+    }
+
+    const confirmation = window.confirm(
+      "Voulez-vous convertir ce devis en facture ?"
+    );
+
+    if (confirmation) {
+      convertirDevisEnFacture(id);
+    }
+  }
+
+  function afficherStatut(item) {
+    if (item.statut === "Converti") {
+      return <span className="badge payee">Converti</span>;
+    }
+
+    if (item.statut === "Accepté") {
+      return <span className="badge payee">Accepté</span>;
+    }
+
+    if (item.statut === "Envoyé") {
+      return <span className="badge attente">Envoyé</span>;
+    }
+
+    return <span className="badge attente">En attente</span>;
+  }
+
   return (
     <section>
       <h1>Gestion des devis</h1>
+
       <p className="sous-titre">
         Créez, modifiez et suivez vos devis.
       </p>
@@ -121,6 +164,7 @@ function Devis({
               required
             >
               <option value="">Choisir un client</option>
+
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.nom}
@@ -188,44 +232,72 @@ function Devis({
                   <td>{item.montant} DH</td>
                   <td>{item.date}</td>
 
-                  <td>
-                    {item.statut === "Envoyé" ? (
-                      <span className="badge payee">Envoyé</span>
-                    ) : (
-                      <span className="badge attente">
-                        {item.statut}
-                      </span>
-                    )}
-                  </td>
+                  <td>{afficherStatut(item)}</td>
 
                   <td>
                     <div className="actions-facture">
-                      <button
-                        type="button"
-                        className="bouton petit"
-                        onClick={() => commencerModification(item)}
-                      >
-                        Modifier
-                      </button>
+                      {item.statut === "En attente" && (
+                        <>
+                          <button
+                            type="button"
+                            className="bouton petit"
+                            onClick={() => commencerModification(item)}
+                          >
+                            Modifier
+                          </button>
 
-                      <button
-                        type="button"
-                        className="bouton petit bouton-danger"
-                        onClick={() => gererSuppression(item)}
-                      >
-                        Supprimer
-                      </button>
+                          <button
+                            type="button"
+                            className="bouton petit bouton-danger"
+                            onClick={() => gererSuppression(item)}
+                          >
+                            Supprimer
+                          </button>
 
-                      {item.statut !== "Envoyé" ? (
+                          <button
+                            type="button"
+                            className="bouton petit"
+                            onClick={() => simulerEnvoi(item.id)}
+                          >
+                            Simuler l'envoi
+                          </button>
+                        </>
+                      )}
+
+                      {item.statut === "Envoyé" && (
+                        <>
+                          <button
+                            type="button"
+                            className="bouton petit"
+                            onClick={() => accepterDevis(item.id)}
+                          >
+                            Accepter
+                          </button>
+
+                          <button
+                            type="button"
+                            className="bouton petit bouton-danger"
+                            onClick={() => gererSuppression(item)}
+                          >
+                            Supprimer
+                          </button>
+                        </>
+                      )}
+
+                      {item.statut === "Accepté" && !item.factureId && (
                         <button
                           type="button"
                           className="bouton petit"
-                          onClick={() => simulerEnvoi(item.id)}
+                          onClick={() => convertirDevis(item.id)}
                         >
-                          Simuler l'envoi
+                          Convertir en facture
                         </button>
-                      ) : (
-                        <span className="badge payee">Envoyé</span>
+                      )}
+
+                      {item.statut === "Converti" && (
+                        <span className="badge payee">
+                          Facture créée
+                        </span>
                       )}
                     </div>
                   </td>

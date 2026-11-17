@@ -32,53 +32,6 @@ function App() {
   const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
   const [comptes, setComptes] = useState([]);
 
-  // Calcul du statut d'une facture selon ses paiements
-  function calculerStatutFacture(factureId, listePaiements) {
-    const facture = factures.find((f) => f.id === factureId);
-
-    if (!facture) {
-      return "En attente";
-    }
-
-    const totalPaye = listePaiements
-      .filter((p) => p.factureId === factureId)
-      .reduce((total, p) => total + Number(p.montant), 0);
-
-    if (totalPaye >= Number(facture.montant)) {
-      return "Payée";
-    }
-
-    if (totalPaye > 0) {
-      return "Partiellement payée";
-    }
-
-    return "En attente";
-  }
-
-  function actualiserStatutFacture(factureId, listePaiements) {
-    const facture = factures.find((f) => f.id === factureId);
-
-    if (!facture) return;
-
-    const totalPaye = listePaiements
-      .filter((p) => p.factureId === factureId)
-      .reduce((total, p) => total + Number(p.montant), 0);
-
-    let nouveauStatut = "En attente";
-
-    if (totalPaye >= Number(facture.montant)) {
-      nouveauStatut = "Payée";
-    } else if (totalPaye > 0) {
-      nouveauStatut = "Partiellement payée";
-    }
-
-    setFactures((anciennesFactures) =>
-      anciennesFactures.map((f) =>
-        f.id === factureId ? { ...f, statut: nouveauStatut } : f
-      )
-    );
-  }
-
   // Gestion de l'authentification
   function inscrire(nouveauCompte) {
     const emailExiste = comptes.some(
@@ -92,6 +45,7 @@ function App() {
     }
 
     setComptes((anciensComptes) => [...anciensComptes, nouveauCompte]);
+
     alert("Compte créé avec succès. Vous pouvez maintenant vous connecter.");
     setPageAuth("Connexion");
   }
@@ -124,6 +78,14 @@ function App() {
   // Gestion des clients
   function ajouterClient(client) {
     setClients((anciensClients) => [...anciensClients, client]);
+  }
+
+  function modifierClient(id, donnees) {
+    setClients((anciensClients) =>
+      anciensClients.map((client) =>
+        client.id === id ? { ...client, ...donnees } : client
+      )
+    );
   }
 
   function supprimerClient(id) {
@@ -203,16 +165,6 @@ function App() {
     );
 
     alert("Le devis a été converti en facture avec succès.");
-  }
-
-  function changerStatutFacture(id, nouveauStatut) {
-    setFactures((anciennesFactures) =>
-      anciennesFactures.map((facture) =>
-        facture.id === id
-          ? { ...facture, statut: nouveauStatut }
-          : facture
-      )
-    );
   }
 
   function modifierFacture(id, donnees) {
@@ -300,6 +252,32 @@ function App() {
   }
 
   // Gestion des paiements
+  function actualiserStatutFacture(factureId, listePaiements) {
+    const facture = factures.find((f) => f.id === factureId);
+
+    if (!facture) return;
+
+    const totalPaye = listePaiements
+      .filter((p) => p.factureId === factureId)
+      .reduce((total, p) => total + Number(p.montant), 0);
+
+    let nouveauStatut = "En attente";
+
+    if (totalPaye >= Number(facture.montant)) {
+      nouveauStatut = "Payée";
+    } else if (totalPaye > 0) {
+      nouveauStatut = "Partiellement payée";
+    }
+
+    setFactures((anciennesFactures) =>
+      anciennesFactures.map((f) =>
+        f.id === factureId
+          ? { ...f, statut: nouveauStatut }
+          : f
+      )
+    );
+  }
+
   function ajouterPaiement(paiement) {
     const facture = factures.find(
       (f) => f.id === paiement.factureId
@@ -320,7 +298,9 @@ function App() {
       Number(paiement.montant) <= 0 ||
       Number(paiement.montant) > montantRestant
     ) {
-      alert(`Le montant ne peut pas dépasser le reste à payer : ${montantRestant} DH.`);
+      alert(
+        `Le montant ne peut pas dépasser le reste à payer : ${montantRestant} DH.`
+      );
       return;
     }
 
@@ -358,14 +338,19 @@ function App() {
       nouveauMontant <= 0 ||
       totalAutresPaiements + nouveauMontant > Number(facture.montant)
     ) {
-      const montantMaximum = Number(facture.montant) - totalAutresPaiements;
+      const montantMaximum =
+        Number(facture.montant) - totalAutresPaiements;
 
-      alert(`Le montant maximum autorisé pour ce paiement est de ${montantMaximum} DH.`);
+      alert(
+        `Le montant maximum autorisé pour ce paiement est de ${montantMaximum} DH.`
+      );
       return;
     }
 
     const nouveauxPaiements = paiements.map((p) =>
-      p.id === id ? { ...p, ...donnees, montant: nouveauMontant } : p
+      p.id === id
+        ? { ...p, ...donnees, montant: nouveauMontant }
+        : p
     );
 
     setPaiements(nouveauxPaiements);
@@ -400,6 +385,7 @@ function App() {
           <Clients
             clients={clients}
             ajouterClient={ajouterClient}
+            modifierClient={modifierClient}
             supprimerClient={supprimerClient}
           />
         );

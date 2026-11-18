@@ -14,6 +14,7 @@ function Devis({
   const [montant, setMontant] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [devisEnCours, setDevisEnCours] = useState(null);
+  const [recherche, setRecherche] = useState("");
 
   function reinitialiserFormulaire() {
     setClientId("");
@@ -62,9 +63,7 @@ function Devis({
 
   function commencerModification(item) {
     if (item.statut !== "En attente") {
-      alert(
-        "Seuls les devis en attente peuvent être modifiés."
-      );
+      alert("Seuls les devis en attente peuvent être modifiés.");
       return;
     }
 
@@ -141,6 +140,21 @@ function Devis({
     return <span className="badge attente">En attente</span>;
   }
 
+  // Recherche par numéro, nom du client ou date
+  const devisFiltres = devis.filter((item) => {
+    const terme = recherche.trim().toLowerCase();
+
+    const numero = String(item.numero || "").toLowerCase();
+    const nom = nomClient(item.clientId).toLowerCase();
+    const dateDevis = String(item.date || "").toLowerCase();
+
+    return (
+      numero.includes(terme) ||
+      nom.includes(terme) ||
+      dateDevis.includes(terme)
+    );
+  });
+
   return (
     <section>
       <h1>Gestion des devis</h1>
@@ -211,6 +225,29 @@ function Devis({
       <div className="carte">
         <h2>Liste des devis</h2>
 
+        <div className="recherche-container">
+          <input
+            type="text"
+            placeholder="Rechercher par numéro, client ou date..."
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+
+          {recherche && (
+            <button
+              type="button"
+              className="bouton petit"
+              onClick={() => setRecherche("")}
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+
+        <p className="sous-titre">
+          {devisFiltres.length} devis trouvé(s)
+        </p>
+
         <div className="table-responsive">
           <table>
             <thead>
@@ -225,7 +262,7 @@ function Devis({
             </thead>
 
             <tbody>
-              {devis.map((item) => (
+              {devisFiltres.map((item) => (
                 <tr key={item.id}>
                   <td>{item.numero}</td>
                   <td>{nomClient(item.clientId)}</td>
@@ -304,9 +341,13 @@ function Devis({
                 </tr>
               ))}
 
-              {devis.length === 0 && (
+              {devisFiltres.length === 0 && (
                 <tr>
-                  <td colSpan="6">Aucun devis disponible.</td>
+                  <td colSpan="6">
+                    {devis.length === 0
+                      ? "Aucun devis disponible."
+                      : "Aucun devis ne correspond à votre recherche."}
+                  </td>
                 </tr>
               )}
             </tbody>

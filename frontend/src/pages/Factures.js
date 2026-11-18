@@ -12,6 +12,7 @@ function Factures({
   const [montant, setMontant] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [factureEnCours, setFactureEnCours] = useState(null);
+  const [recherche, setRecherche] = useState("");
 
   function reinitialiserFormulaire() {
     setClientId("");
@@ -49,7 +50,7 @@ function Factures({
   }
 
   function commencerModification(facture) {
-    if (facture.statut === "Payée") {
+    if (facture.statut !== "En attente") {
       alert(
         "Pour protéger les données de paiement, seules les factures en attente peuvent être modifiées."
       );
@@ -66,6 +67,22 @@ function Factures({
     const client = clients.find((c) => c.id === id);
     return client ? client.nom : "Client inconnu";
   }
+
+  // Recherche par numéro, nom du client ou date
+
+  const facturesFiltrees = factures.filter((facture) => {
+    const terme = recherche.trim().toLowerCase();
+
+    const numero = String(facture.numero || "").toLowerCase();
+    const nom = nomClient(facture.clientId).toLowerCase();
+    const dateFacture = String(facture.date || "").toLowerCase();
+
+    return (
+      numero.includes(terme) ||
+      nom.includes(terme) ||
+      dateFacture.includes(terme)
+    );
+  });
 
   return (
     <section>
@@ -135,7 +152,26 @@ function Factures({
       </div>
 
       <div className="carte">
-        <h2>Liste des factures</h2>
+        <h2>Liste des factures ({facturesFiltrees.length})</h2>
+
+        <div className="recherche-container">
+          <input
+            type="search"
+            placeholder="Rechercher par numéro, client ou date..."
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+
+          {recherche && (
+            <button
+              type="button"
+              className="bouton petit"
+              onClick={() => setRecherche("")}
+            >
+              Effacer
+            </button>
+          )}
+        </div>
 
         <div className="table-responsive">
           <table>
@@ -151,7 +187,7 @@ function Factures({
             </thead>
 
             <tbody>
-              {factures.map((facture) => (
+              {facturesFiltrees.map((facture) => (
                 <tr key={facture.id}>
                   <td>{facture.numero}</td>
                   <td>{nomClient(facture.clientId)}</td>
@@ -176,6 +212,7 @@ function Factures({
                         type="button"
                         className="bouton petit"
                         onClick={() => commencerModification(facture)}
+                        disabled={facture.statut !== "En attente"}
                       >
                         Modifier
                       </button>
@@ -192,9 +229,13 @@ function Factures({
                 </tr>
               ))}
 
-              {factures.length === 0 && (
+              {facturesFiltrees.length === 0 && (
                 <tr>
-                  <td colSpan="6">Aucune facture disponible.</td>
+                  <td colSpan="6">
+                    {factures.length === 0
+                      ? "Aucune facture disponible."
+                      : "Aucune facture ne correspond à votre recherche."}
+                  </td>
                 </tr>
               )}
             </tbody>

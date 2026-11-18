@@ -23,6 +23,7 @@ import "./App.css";
 
 function App() {
   const [pageActive, setPageActive] = useState("Accueil");
+
   const [clients, setClients] = useState(clientsInitiaux);
   const [factures, setFactures] = useState(facturesInitiales);
   const [devis, setDevis] = useState(devisInitiaux);
@@ -33,6 +34,7 @@ function App() {
   const [comptes, setComptes] = useState([]);
 
   // Gestion de l'authentification
+
   function inscrire(nouveauCompte) {
     const emailExiste = comptes.some(
       (compte) =>
@@ -47,6 +49,7 @@ function App() {
     setComptes((anciensComptes) => [...anciensComptes, nouveauCompte]);
 
     alert("Compte créé avec succès. Vous pouvez maintenant vous connecter.");
+
     setPageAuth("Connexion");
   }
 
@@ -76,6 +79,7 @@ function App() {
   }
 
   // Gestion des clients
+
   function ajouterClient(client) {
     setClients((anciensClients) => [...anciensClients, client]);
   }
@@ -112,6 +116,7 @@ function App() {
   }
 
   // Gestion des factures
+
   function ajouterFacture(facture) {
     setFactures((anciennesFactures) => [
       ...anciennesFactures,
@@ -201,6 +206,7 @@ function App() {
   }
 
   // Gestion des devis
+
   function ajouterDevis(nouveauDevis) {
     setDevis((anciensDevis) => [
       ...anciensDevis,
@@ -252,6 +258,7 @@ function App() {
   }
 
   // Gestion des paiements
+
   function actualiserStatutFacture(factureId, listePaiements) {
     const facture = factures.find((f) => f.id === factureId);
 
@@ -307,6 +314,7 @@ function App() {
     const nouveauxPaiements = [...paiements, paiement];
 
     setPaiements(nouveauxPaiements);
+
     actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
   }
 
@@ -354,6 +362,7 @@ function App() {
     );
 
     setPaiements(nouveauxPaiements);
+
     actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
   }
 
@@ -365,10 +374,12 @@ function App() {
     const nouveauxPaiements = paiements.filter((p) => p.id !== id);
 
     setPaiements(nouveauxPaiements);
+
     actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
   }
 
   // Affichage des pages
+
   function afficherPage() {
     switch (pageActive) {
       case "Accueil":
@@ -377,6 +388,7 @@ function App() {
             clients={clients}
             factures={factures}
             devis={devis}
+            paiements={paiements}
           />
         );
 
@@ -431,6 +443,7 @@ function App() {
           <Relances
             factures={factures}
             clients={clients}
+            paiements={paiements}
           />
         );
 
@@ -440,6 +453,7 @@ function App() {
   }
 
   // Affichage de la connexion ou de l'inscription
+
   if (!utilisateurConnecte) {
     return (
       <div className="application">
@@ -465,6 +479,7 @@ function App() {
   }
 
   // Application principale
+
   return (
     <div className="application">
       <Menu

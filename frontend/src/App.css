@@ -841,3 +841,62 @@ tbody tr:last-child td {
     padding: 12px 8px;
   }
 }
+
+
+/* =========================================
+   17. BARRE DE RECHERCHE
+========================================= */
+
+.recherche-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.recherche-container input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 12px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.recherche-container input::placeholder {
+  color: #94a3b8;
+}
+
+.recherche-container input:hover {
+  border-color: #94a3b8;
+}
+
+.recherche-container input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.recherche-container .bouton {
+  flex-shrink: 0;
+}
+
+/* Adaptation mobile */
+
+@media (max-width: 650px) {
+  .recherche-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recherche-container .bouton {
+    width: 100%;
+  }
+}
+

@@ -14,6 +14,7 @@ function Paiements({
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [mode, setMode] = useState("Espèces");
   const [paiementEnCours, setPaiementEnCours] = useState(null);
+  const [recherche, setRecherche] = useState("");
 
   function totalPaye(factureId, paiementIgnoreId = null) {
     return paiements
@@ -139,6 +140,35 @@ function Paiements({
     return client ? client.nom : "Client inconnu";
   }
 
+  // Recherche par numéro de facture, client, date, mode ou montant
+  const paiementsFiltres = paiements.filter((paiement) => {
+    const terme = recherche.trim().toLowerCase();
+
+    const facture = factures.find(
+      (f) => f.id === paiement.factureId
+    );
+
+    const numeroFacture = facture
+      ? String(facture.numero || "").toLowerCase()
+      : "";
+
+    const client = facture
+      ? nomClient(facture.clientId).toLowerCase()
+      : "";
+
+    const datePaiement = String(paiement.date || "").toLowerCase();
+    const modePaiement = String(paiement.mode || "").toLowerCase();
+    const montantPaiement = String(paiement.montant || "").toLowerCase();
+
+    return (
+      numeroFacture.includes(terme) ||
+      client.includes(terme) ||
+      datePaiement.includes(terme) ||
+      modePaiement.includes(terme) ||
+      montantPaiement.includes(terme)
+    );
+  });
+
   return (
     <section>
       <h1>Gestion des paiements</h1>
@@ -254,6 +284,29 @@ function Paiements({
       <div className="carte">
         <h2>Historique des paiements</h2>
 
+        <div className="recherche-container">
+          <input
+            type="text"
+            placeholder="Rechercher par facture, client, date, mode ou montant..."
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+
+          {recherche && (
+            <button
+              type="button"
+              className="bouton petit"
+              onClick={() => setRecherche("")}
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+
+        <p className="sous-titre">
+          {paiementsFiltres.length} paiement(s) trouvé(s)
+        </p>
+
         <div className="table-responsive">
           <table>
             <thead>
@@ -268,7 +321,7 @@ function Paiements({
             </thead>
 
             <tbody>
-              {paiements.map((paiement) => {
+              {paiementsFiltres.map((paiement) => {
                 const facture = factures.find(
                   (f) => f.id === paiement.factureId
                 );
@@ -310,9 +363,13 @@ function Paiements({
                 );
               })}
 
-              {paiements.length === 0 && (
+              {paiementsFiltres.length === 0 && (
                 <tr>
-                  <td colSpan="6">Aucun paiement enregistré.</td>
+                  <td colSpan="6">
+                    {paiements.length === 0
+                      ? "Aucun paiement enregistré."
+                      : "Aucun paiement ne correspond à votre recherche."}
+                  </td>
                 </tr>
               )}
             </tbody>

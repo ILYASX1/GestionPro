@@ -1,5 +1,5 @@
 
-function Relances({ factures, clients }) {
+function Relances({ factures, clients, paiements }) {
   const facturesImpayees = factures.filter(
     (facture) => facture.statut !== "Payée"
   );
@@ -9,19 +9,28 @@ function Relances({ factures, clients }) {
     return client ? client.nom : "Client inconnu";
   }
 
+  function montantRestant(facture) {
+    const totalPaye = paiements
+      .filter((p) => p.factureId === facture.id)
+      .reduce((total, p) => total + Number(p.montant), 0);
+
+    return Math.max(0, Number(facture.montant) - totalPaye);
+  }
+
   function preparerRelance(facture) {
     const client = clients.find(
       (c) => c.id === facture.clientId
     );
 
     const email = client ? client.email : "Non disponible";
+    const restant = montantRestant(facture);
 
     alert(
       `Relance préparée !\n\n` +
       `Facture : ${facture.numero}\n` +
       `Client : ${nomClient(facture.clientId)}\n` +
       `Email : ${email}\n` +
-      `Montant : ${facture.montant} DH\n\n` +
+      `Montant restant : ${restant} DH\n\n` +
       `Ceci est une simulation. Aucun email n'a été envoyé.`
     );
   }
@@ -48,8 +57,9 @@ function Relances({ factures, clients }) {
                 <tr>
                   <th>Facture</th>
                   <th>Client</th>
-                  <th>Montant</th>
+                  <th>Montant restant</th>
                   <th>Date</th>
+                  <th>Statut</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -59,8 +69,9 @@ function Relances({ factures, clients }) {
                   <tr key={facture.id}>
                     <td>{facture.numero}</td>
                     <td>{nomClient(facture.clientId)}</td>
-                    <td>{facture.montant} DH</td>
+                    <td>{montantRestant(facture)} DH</td>
                     <td>{facture.date}</td>
+                    <td>{facture.statut}</td>
                     <td>
                       <button
                         className="bouton petit"

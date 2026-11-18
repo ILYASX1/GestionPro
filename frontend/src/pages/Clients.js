@@ -11,6 +11,7 @@ function Clients({
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
   const [clientEnCours, setClientEnCours] = useState(null);
+  const [recherche, setRecherche] = useState("");
 
   function reinitialiserFormulaire() {
     setNom("");
@@ -84,6 +85,18 @@ function Clients({
     alert("Client modifié avec succès.");
   }
 
+  // Recherche des clients
+
+  const clientsFiltres = clients.filter((client) => {
+    const terme = recherche.trim().toLowerCase();
+
+    return (
+      client.nom.toLowerCase().includes(terme) ||
+      client.email.toLowerCase().includes(terme) ||
+      (client.telephone || "").toLowerCase().includes(terme)
+    );
+  });
+
   return (
     <section>
       <h1>Gestion des clients</h1>
@@ -143,7 +156,26 @@ function Clients({
       </div>
 
       <div className="carte">
-        <h2>Liste des clients ({clients.length})</h2>
+        <h2>Liste des clients ({clientsFiltres.length})</h2>
+
+        <div className="recherche-container">
+          <input
+            type="search"
+            placeholder="Rechercher par nom, email ou téléphone..."
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+
+          {recherche && (
+            <button
+              type="button"
+              className="bouton petit"
+              onClick={() => setRecherche("")}
+            >
+              Effacer
+            </button>
+          )}
+        </div>
 
         <div className="table-responsive">
           <table>
@@ -157,7 +189,7 @@ function Clients({
             </thead>
 
             <tbody>
-              {clients.map((client) => (
+              {clientsFiltres.map((client) => (
                 <tr key={client.id}>
                   <td>{client.nom}</td>
                   <td>{client.email}</td>
@@ -185,9 +217,13 @@ function Clients({
                 </tr>
               ))}
 
-              {clients.length === 0 && (
+              {clientsFiltres.length === 0 && (
                 <tr>
-                  <td colSpan="4">Aucun client enregistré.</td>
+                  <td colSpan="4">
+                    {clients.length === 0
+                      ? "Aucun client enregistré."
+                      : "Aucun client ne correspond à votre recherche."}
+                  </td>
                 </tr>
               )}
             </tbody>

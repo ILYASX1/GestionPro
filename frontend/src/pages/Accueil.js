@@ -1,13 +1,18 @@
 
-function Accueil({ clients, factures, devis }) {
+function Accueil({ clients, factures, devis, paiements }) {
   const facturesImpayees = factures.filter(
     (facture) => facture.statut !== "Payée"
   );
 
-  const montantImpaye = facturesImpayees.reduce(
-    (total, facture) => total + Number(facture.montant),
-    0
-  );
+  const montantImpaye = factures.reduce((total, facture) => {
+    const totalPaye = paiements
+      .filter((paiement) => paiement.factureId === facture.id)
+      .reduce((somme, paiement) => somme + Number(paiement.montant), 0);
+
+    const restant = Math.max(0, Number(facture.montant) - totalPaye);
+
+    return total + restant;
+  }, 0);
 
   const statistiques = [
     { titre: "Clients", valeur: clients.length },

@@ -1,29 +1,54 @@
 
 function Accueil({ clients, factures, devis, paiements }) {
+  // Factures qui ne sont pas encore totalement payées
   const facturesImpayees = factures.filter(
     (facture) => facture.statut !== "Payée"
   );
 
+  // Calcul du montant réellement restant à encaisser
   const montantImpaye = factures.reduce((total, facture) => {
     const totalPaye = paiements
       .filter((paiement) => paiement.factureId === facture.id)
-      .reduce((somme, paiement) => somme + Number(paiement.montant), 0);
+      .reduce(
+        (somme, paiement) => somme + Number(paiement.montant),
+        0
+      );
 
-    const restant = Math.max(0, Number(facture.montant) - totalPaye);
+    const restant = Math.max(
+      0,
+      Number(facture.montant) - totalPaye
+    );
 
     return total + restant;
   }, 0);
 
+  // Statistiques du tableau de bord
   const statistiques = [
-    { titre: "Clients", valeur: clients.length },
-    { titre: "Factures", valeur: factures.length },
-    { titre: "Devis", valeur: devis.length },
-    { titre: "Factures impayées", valeur: facturesImpayees.length },
+    {
+      titre: "Clients",
+      valeur: clients.length,
+    },
+    {
+      titre: "Factures",
+      valeur: factures.length,
+    },
+    {
+      titre: "Devis",
+      valeur: devis.length,
+    },
+    {
+      titre: "Factures impayées",
+      valeur: facturesImpayees.length,
+    },
   ];
+
+  // Les cinq dernières factures
+  const dernieresFactures = factures.slice(-5).reverse();
 
   return (
     <section>
       <h1>Tableau de bord</h1>
+
       <p className="sous-titre">
         Bienvenue dans votre espace de gestion.
       </p>
@@ -39,6 +64,7 @@ function Accueil({ clients, factures, devis, paiements }) {
 
       <div className="carte">
         <h2>Montant restant à encaisser</h2>
+
         <p className="montant">
           {montantImpaye.toLocaleString("fr-FR")} DH
         </p>
@@ -46,6 +72,7 @@ function Accueil({ clients, factures, devis, paiements }) {
 
       <div className="carte">
         <h2>Dernières factures</h2>
+
         <div className="table-responsive">
           <table>
             <thead>
@@ -56,12 +83,16 @@ function Accueil({ clients, factures, devis, paiements }) {
                 <th>Statut</th>
               </tr>
             </thead>
+
             <tbody>
-              {factures.slice(-5).reverse().map((facture) => (
+              {dernieresFactures.map((facture) => (
                 <tr key={facture.id}>
                   <td>{facture.numero}</td>
+
                   <td>{facture.montant} DH</td>
+
                   <td>{facture.date}</td>
+
                   <td>
                     <span
                       className={
@@ -78,7 +109,9 @@ function Accueil({ clients, factures, devis, paiements }) {
 
               {factures.length === 0 && (
                 <tr>
-                  <td colSpan="4">Aucune facture disponible.</td>
+                  <td colSpan="4">
+                    Aucune facture disponible.
+                  </td>
                 </tr>
               )}
             </tbody>

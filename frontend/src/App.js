@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Menu from "./components/Menu";
 import Connexion from "./pages/Connexion";
@@ -18,6 +18,7 @@ import Factures from "./pages/Factures";
 import Devis from "./pages/Devis";
 import Paiements from "./pages/Paiements";
 import Relances from "./pages/Relances";
+import Administrateurs from "./pages/Administrateurs";
 
 import "./App.css";
 
@@ -31,14 +32,82 @@ function App() {
 
   const [pageAuth, setPageAuth] = useState("Connexion");
   const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
-  const [comptes, setComptes] = useState([]);
 
-  // Gestion de l'authentification
+  const [comptes, setComptes] = useState(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("gestionpro_comptes") || "[]"
+      );
+    } catch {
+      return [];
+    }
+  });
+
+  // SAUVEGARDE DES COMPTES
+
+  useEffect(() => {
+    localStorage.setItem(
+      "gestionpro_comptes",
+      JSON.stringify(comptes)
+    );
+  }, [comptes]);
+
+  const superAdministrateurExiste = comptes.some(
+    (compte) => compte.role === "super_admin"
+  );
+
+  const estSuperAdministrateur =
+    utilisateurConnecte?.role === "super_admin";
+
+  const estAdministrateur =
+    utilisateurConnecte?.role === "admin";
+
+  // DONNÉES VISIBLES SELON LE RÔLE
+
+  const clientsVisibles = estSuperAdministrateur
+    ? clients
+    : clients.filter(
+        (client) => client.adminId === utilisateurConnecte?.id
+      );
+
+  const idsClientsVisibles = clientsVisibles.map(
+    (client) => client.id
+  );
+
+  const devisVisibles = devis.filter(
+    (item) => idsClientsVisibles.includes(item.clientId)
+  );
+
+  const facturesVisibles = factures.filter(
+    (facture) => idsClientsVisibles.includes(facture.clientId)
+  );
+
+  const paiementsVisibles = paiements.filter((paiement) => {
+    const facture = factures.find(
+      (item) => item.id === paiement.factureId
+    );
+
+    return (
+      facture &&
+      idsClientsVisibles.includes(facture.clientId)
+    );
+  });
+
+  // AUTHENTIFICATION
 
   function inscrire(nouveauCompte) {
+    if (superAdministrateurExiste) {
+      alert("La création du premier compte est déjà terminée.");
+      setPageAuth("Connexion");
+      return;
+    }
+
+    const emailNormalise = nouveauCompte.email
+      .trim()
+      .toLowerCase();
+
     const emailExiste = comptes.some(
-      (compte) =>
-        compte.email.toLowerCase() === nouveauCompte.email.toLowerCase()
+      (compte) => compte.email.toLowerCase() === emailNormalise
     );
 
     if (emailExiste) {
@@ -46,9 +115,21 @@ function App() {
       return;
     }
 
-    setComptes((anciensComptes) => [...anciensComptes, nouveauCompte]);
+    const compteInitial = {
+      id: Date.now(),
+      ...nouveauCompte,
+      email: emailNormalise,
+      role: "super_admin",
+    };
 
-    alert("Compte créé avec succès. Vous pouvez maintenant vous connecter.");
+    setComptes((anciensComptes) => [
+      ...anciensComptes,
+      compteInitial,
+    ]);
+
+    alert(
+      "Compte Super administrateur créé avec succès. Vous pouvez maintenant vous connecter."
+    );
 
     setPageAuth("Connexion");
   }
@@ -56,7 +137,8 @@ function App() {
   function connecter(informations) {
     const compte = comptes.find(
       (item) =>
-        item.email.toLowerCase() === informations.email.trim().toLowerCase() &&
+        item.email.toLowerCase() ===
+          informations.email.trim().toLowerCase() &&
         item.motDePasse === informations.motDePasse
     );
 
@@ -66,8 +148,10 @@ function App() {
     }
 
     setUtilisateurConnecte({
+      id: compte.id,
       nom: compte.nom,
       email: compte.email,
+      role: compte.role,
     });
 
     setPageActive("Accueil");
@@ -76,30 +160,259 @@ function App() {
   function deconnecter() {
     setUtilisateurConnecte(null);
     setPageAuth("Connexion");
+    setPageActive("Accueil");
   }
 
-  // Gestion des clients
+  // GESTION DES ADMINISTRATEURS
+
+  function ajouterAdministrateur(nouveauCompte) {
+    if (!estSuperAdministrateur) {
+      alert("Accès non autorisé.");
+      return;
+    }
+
+    const emailNormalise = nouveauCompte.email
+      .trim()
+      .toLowerCase();
+
+    const emailExiste = comptes.some(
+      (compte) => compte.email.toLowerCase() === emailNormalise
+    );
+
+    if (emailExiste) {
+      alert("Cette adresse email est déjà utilisée.");
+      return;
+    }
+
+    if (nouveauCompte.motDePasse.length < 6) {
+      alert("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    const nouvelAdministrateur = {
+      id: Date.now(),
+      nom: nouveauCompte.nom.trim(),
+      email: emailNormalise,
+      motDePasse: nouveauCompte.motDePasse,
+      role: "admin",
+    };
+
+    setComptes((anciensComptes) => [
+      ...anciensComptes,
+      nouvelAdministrateur,
+    ]);
+
+    alert("Le compte administrateur a été créé avec succès.");
+  }
+
+  function modifierAdministrateur(id, donnees) {
+    if (!estSuperAdministrateur) {
+      alert("Accès non autorisé.");
+      return;
+    }
+
+    const administrateur = comptes.find(
+      (compte) => compte.id === id && compte.role === "admin"
+    );
+
+    if (!administrateur) {
+      alert("Administrateur introuvable.");
+      return;
+    }
+
+    const emailNormalise = donnees.email
+      .trim()
+      .toLowerCase();
+
+    const emailExiste = comptes.some(
+      (compte) =>
+        compte.id !== id &&
+        compte.email.toLowerCase() === emailNormalise
+    );
+
+    if (emailExiste) {
+      alert("Cette adresse email est déjà utilisée.");
+      return;
+    }
+
+    setComptes((anciensComptes) =>
+      anciensComptes.map((compte) =>
+        compte.id === id && compte.role === "admin"
+          ? {
+              ...compte,
+              ...donnees,
+              email: emailNormalise,
+            }
+          : compte
+      )
+    );
+
+    alert("Les informations de l'administrateur ont été modifiées.");
+  }
+
+  function supprimerAdministrateur(id) {
+    if (!estSuperAdministrateur) {
+      alert("Accès non autorisé.");
+      return;
+    }
+
+    const administrateur = comptes.find(
+      (compte) => compte.id === id && compte.role === "admin"
+    );
+
+    if (!administrateur) {
+      alert("Administrateur introuvable.");
+      return;
+    }
+
+    const nombreClients = clients.filter(
+      (client) => client.adminId === id
+    ).length;
+
+    if (nombreClients > 0) {
+      alert(
+        "Impossible de supprimer cet administrateur : des clients lui sont attribués. Réattribuez d'abord ses clients."
+      );
+      return;
+    }
+
+    setComptes((anciensComptes) =>
+      anciensComptes.filter(
+        (compte) => compte.id !== id
+      )
+    );
+
+    alert("Le compte administrateur a été supprimé.");
+  }
+
+  // GESTION DES CLIENTS
 
   function ajouterClient(client) {
-    setClients((anciensClients) => [...anciensClients, client]);
+    if (!estSuperAdministrateur) {
+      alert("Seul le Super administrateur peut ajouter des clients.");
+      return;
+    }
+
+    const nouvelAdministrateur = comptes.find(
+      (compte) =>
+        compte.id === Number(client.adminId) &&
+        compte.role === "admin"
+    );
+
+    if (!nouvelAdministrateur) {
+      alert("Veuillez choisir un administrateur valide.");
+      return;
+    }
+
+    setClients((anciensClients) => [
+      ...anciensClients,
+      {
+        ...client,
+        adminId: nouvelAdministrateur.id,
+      },
+    ]);
+  }
+
+  function attribuerClient(clientId, nouvelAdminId) {
+    if (!estSuperAdministrateur) {
+      alert("Accès non autorisé.");
+      return;
+    }
+
+    const adminExiste = comptes.some(
+      (compte) =>
+        compte.id === Number(nouvelAdminId) &&
+        compte.role === "admin"
+    );
+
+    if (!adminExiste) {
+      alert("Administrateur introuvable.");
+      return;
+    }
+
+    const clientExiste = clients.some(
+      (client) => client.id === clientId
+    );
+
+    if (!clientExiste) {
+      alert("Client introuvable.");
+      return;
+    }
+
+    setClients((anciensClients) =>
+      anciensClients.map((client) =>
+        client.id === clientId
+          ? { ...client, adminId: Number(nouvelAdminId) }
+          : client
+      )
+    );
+
+    alert(
+      "Le client a été transféré avec succès. Son historique reste associé à son dossier."
+    );
   }
 
   function modifierClient(id, donnees) {
+    if (!estAdministrateur) {
+      alert(
+        "Seul un administrateur peut modifier les informations d'un client."
+      );
+      return;
+    }
+
+    const clientExiste = clients.some(
+      (client) =>
+        client.id === id &&
+        client.adminId === utilisateurConnecte.id
+    );
+
+    if (!clientExiste) {
+      alert("Vous ne pouvez pas modifier ce client.");
+      return;
+    }
+
     setClients((anciensClients) =>
       anciensClients.map((client) =>
-        client.id === id ? { ...client, ...donnees } : client
+        client.id === id
+          ? {
+              ...client,
+              ...donnees,
+              adminId: client.adminId,
+            }
+          : client
       )
     );
   }
 
   function supprimerClient(id) {
+    if (!estSuperAdministrateur) {
+      alert("Seul le Super administrateur peut supprimer un client.");
+      return;
+    }
+
+    const clientExiste = clients.some(
+      (client) => client.id === id
+    );
+
+    if (!clientExiste) {
+      alert("Client introuvable.");
+      return;
+    }
+
     const clientUtilise =
+      devis.some((item) => item.clientId === id) ||
       factures.some((facture) => facture.clientId === id) ||
-      devis.some((item) => item.clientId === id);
+      paiements.some((paiement) => {
+        const facture = factures.find(
+          (item) => item.id === paiement.factureId
+        );
+
+        return facture?.clientId === id;
+      });
 
     if (clientUtilise) {
       alert(
-        "Impossible de supprimer ce client : il est associé à une facture ou à un devis."
+        "Impossible de supprimer ce client : il possède un devis, une facture ou un paiement associé."
       );
       return;
     }
@@ -115,9 +428,35 @@ function App() {
     );
   }
 
-  // Gestion des factures
+  // VÉRIFICATION DES DROITS COMMERCIAUX
+
+  function autoriserModificationClient(clientId) {
+    if (estSuperAdministrateur) {
+      alert(
+        "Le Super administrateur peut consulter les dossiers, mais ne peut pas modifier les opérations commerciales."
+      );
+      return false;
+    }
+
+    const clientAutorise = clients.some(
+      (client) =>
+        client.id === clientId &&
+        client.adminId === utilisateurConnecte?.id
+    );
+
+    if (!clientAutorise) {
+      alert("Vous n'avez pas accès à ce client.");
+      return false;
+    }
+
+    return true;
+  }
+
+  // GESTION DES FACTURES
 
   function ajouterFacture(facture) {
+    if (!autoriserModificationClient(facture.clientId)) return;
+
     setFactures((anciennesFactures) => [
       ...anciennesFactures,
       facture,
@@ -125,9 +464,15 @@ function App() {
   }
 
   function convertirDevisEnFacture(id) {
-    const devisSelectionne = devis.find((item) => item.id === id);
+    const devisSelectionne = devis.find(
+      (item) => item.id === id
+    );
 
     if (!devisSelectionne) return;
+
+    if (!autoriserModificationClient(devisSelectionne.clientId)) {
+      return;
+    }
 
     if (devisSelectionne.statut !== "Accepté") {
       alert("Seuls les devis acceptés peuvent être convertis.");
@@ -139,7 +484,10 @@ function App() {
       return;
     }
 
-    const dateActuelle = new Date().toISOString().slice(0, 10);
+    const dateActuelle = new Date()
+      .toISOString()
+      .slice(0, 10);
+
     const nouvelId = Date.now();
 
     const nouvelleFacture = {
@@ -173,21 +521,29 @@ function App() {
   }
 
   function modifierFacture(id, donnees) {
+    const facture = factures.find((item) => item.id === id);
+
+    if (!facture) return;
+
+    if (!autoriserModificationClient(facture.clientId)) return;
+
     setFactures((anciennesFactures) =>
-      anciennesFactures.map((facture) =>
-        facture.id === id
-          ? { ...facture, ...donnees }
-          : facture
+      anciennesFactures.map((item) =>
+        item.id === id
+          ? { ...item, ...donnees }
+          : item
       )
     );
   }
 
   function supprimerFacture(id) {
-    const facture = factures.find((f) => f.id === id);
+    const facture = factures.find((item) => item.id === id);
 
     if (!facture) return;
 
-    if (paiements.some((p) => p.factureId === id)) {
+    if (!autoriserModificationClient(facture.clientId)) return;
+
+    if (paiements.some((paiement) => paiement.factureId === id)) {
       alert(
         "Impossible de supprimer cette facture : elle possède un paiement associé."
       );
@@ -201,13 +557,15 @@ function App() {
     if (!confirmation) return;
 
     setFactures((anciennesFactures) =>
-      anciennesFactures.filter((f) => f.id !== id)
+      anciennesFactures.filter((item) => item.id !== id)
     );
   }
 
-  // Gestion des devis
+  // GESTION DES DEVIS
 
   function ajouterDevis(nouveauDevis) {
+    if (!autoriserModificationClient(nouveauDevis.clientId)) return;
+
     setDevis((anciensDevis) => [
       ...anciensDevis,
       nouveauDevis,
@@ -215,6 +573,16 @@ function App() {
   }
 
   function changerStatutDevis(id, nouveauStatut) {
+    const devisSelectionne = devis.find(
+      (item) => item.id === id
+    );
+
+    if (!devisSelectionne) return;
+
+    if (!autoriserModificationClient(devisSelectionne.clientId)) {
+      return;
+    }
+
     setDevis((anciensDevis) =>
       anciensDevis.map((item) =>
         item.id === id
@@ -225,6 +593,16 @@ function App() {
   }
 
   function modifierDevis(id, donnees) {
+    const devisSelectionne = devis.find(
+      (item) => item.id === id
+    );
+
+    if (!devisSelectionne) return;
+
+    if (!autoriserModificationClient(devisSelectionne.clientId)) {
+      return;
+    }
+
     setDevis((anciensDevis) =>
       anciensDevis.map((item) =>
         item.id === id
@@ -235,11 +613,17 @@ function App() {
   }
 
   function supprimerDevis(id) {
-    const item = devis.find((d) => d.id === id);
+    const devisSelectionne = devis.find(
+      (item) => item.id === id
+    );
 
-    if (!item) return;
+    if (!devisSelectionne) return;
 
-    if (item.factureId) {
+    if (!autoriserModificationClient(devisSelectionne.clientId)) {
+      return;
+    }
+
+    if (devisSelectionne.factureId) {
       alert(
         "Impossible de supprimer ce devis : il a déjà été converti en facture."
       );
@@ -247,26 +631,31 @@ function App() {
     }
 
     const confirmation = window.confirm(
-      `Voulez-vous vraiment supprimer le devis ${item.numero} ?`
+      `Voulez-vous vraiment supprimer le devis ${devisSelectionne.numero} ?`
     );
 
     if (!confirmation) return;
 
     setDevis((anciensDevis) =>
-      anciensDevis.filter((d) => d.id !== id)
+      anciensDevis.filter((item) => item.id !== id)
     );
   }
 
-  // Gestion des paiements
+  // GESTION DES PAIEMENTS
 
   function actualiserStatutFacture(factureId, listePaiements) {
-    const facture = factures.find((f) => f.id === factureId);
+    const facture = factures.find(
+      (item) => item.id === factureId
+    );
 
     if (!facture) return;
 
     const totalPaye = listePaiements
-      .filter((p) => p.factureId === factureId)
-      .reduce((total, p) => total + Number(p.montant), 0);
+      .filter((paiement) => paiement.factureId === factureId)
+      .reduce(
+        (total, paiement) => total + Number(paiement.montant),
+        0
+      );
 
     let nouveauStatut = "En attente";
 
@@ -277,17 +666,17 @@ function App() {
     }
 
     setFactures((anciennesFactures) =>
-      anciennesFactures.map((f) =>
-        f.id === factureId
-          ? { ...f, statut: nouveauStatut }
-          : f
+      anciennesFactures.map((item) =>
+        item.id === factureId
+          ? { ...item, statut: nouveauStatut }
+          : item
       )
     );
   }
 
   function ajouterPaiement(paiement) {
     const facture = factures.find(
-      (f) => f.id === paiement.factureId
+      (item) => item.id === paiement.factureId
     );
 
     if (!facture) {
@@ -295,11 +684,17 @@ function App() {
       return;
     }
 
-    const totalDejaPaye = paiements
-      .filter((p) => p.factureId === paiement.factureId)
-      .reduce((total, p) => total + Number(p.montant), 0);
+    if (!autoriserModificationClient(facture.clientId)) return;
 
-    const montantRestant = Number(facture.montant) - totalDejaPaye;
+    const totalDejaPaye = paiements
+      .filter((item) => item.factureId === paiement.factureId)
+      .reduce(
+        (total, item) => total + Number(item.montant),
+        0
+      );
+
+    const montantRestant =
+      Number(facture.montant) - totalDejaPaye;
 
     if (
       Number(paiement.montant) <= 0 ||
@@ -311,20 +706,26 @@ function App() {
       return;
     }
 
-    const nouveauxPaiements = [...paiements, paiement];
+    const nouveauxPaiements = [
+      ...paiements,
+      paiement,
+    ];
 
     setPaiements(nouveauxPaiements);
 
-    actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
+    actualiserStatutFacture(
+      paiement.factureId,
+      nouveauxPaiements
+    );
   }
 
   function modifierPaiement(id, donnees) {
-    const paiement = paiements.find((p) => p.id === id);
+    const paiement = paiements.find((item) => item.id === id);
 
     if (!paiement) return;
 
     const facture = factures.find(
-      (f) => f.id === paiement.factureId
+      (item) => item.id === paiement.factureId
     );
 
     if (!facture) {
@@ -332,19 +733,25 @@ function App() {
       return;
     }
 
+    if (!autoriserModificationClient(facture.clientId)) return;
+
     const totalAutresPaiements = paiements
       .filter(
-        (p) =>
-          p.factureId === paiement.factureId &&
-          p.id !== id
+        (item) =>
+          item.factureId === paiement.factureId &&
+          item.id !== id
       )
-      .reduce((total, p) => total + Number(p.montant), 0);
+      .reduce(
+        (total, item) => total + Number(item.montant),
+        0
+      );
 
     const nouveauMontant = Number(donnees.montant);
 
     if (
       nouveauMontant <= 0 ||
-      totalAutresPaiements + nouveauMontant > Number(facture.montant)
+      totalAutresPaiements + nouveauMontant >
+        Number(facture.montant)
     ) {
       const montantMaximum =
         Number(facture.montant) - totalAutresPaiements;
@@ -355,95 +762,133 @@ function App() {
       return;
     }
 
-    const nouveauxPaiements = paiements.map((p) =>
-      p.id === id
-        ? { ...p, ...donnees, montant: nouveauMontant }
-        : p
+    const nouveauxPaiements = paiements.map((item) =>
+      item.id === id
+        ? { ...item, ...donnees, montant: nouveauMontant }
+        : item
     );
 
     setPaiements(nouveauxPaiements);
 
-    actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
+    actualiserStatutFacture(
+      paiement.factureId,
+      nouveauxPaiements
+    );
   }
 
   function supprimerPaiement(id) {
-    const paiement = paiements.find((p) => p.id === id);
+    const paiement = paiements.find((item) => item.id === id);
 
     if (!paiement) return;
 
-    const nouveauxPaiements = paiements.filter((p) => p.id !== id);
+    const facture = factures.find(
+      (item) => item.id === paiement.factureId
+    );
+
+    if (!facture) return;
+
+    if (!autoriserModificationClient(facture.clientId)) return;
+
+    const nouveauxPaiements = paiements.filter(
+      (item) => item.id !== id
+    );
 
     setPaiements(nouveauxPaiements);
 
-    actualiserStatutFacture(paiement.factureId, nouveauxPaiements);
+    actualiserStatutFacture(
+      paiement.factureId,
+      nouveauxPaiements
+    );
   }
 
-  // Affichage des pages
+  // AFFICHAGE DES PAGES
 
   function afficherPage() {
     switch (pageActive) {
       case "Accueil":
         return (
           <Accueil
-            clients={clients}
-            factures={factures}
-            devis={devis}
-            paiements={paiements}
+            clients={clientsVisibles}
+            factures={facturesVisibles}
+            devis={devisVisibles}
+            paiements={paiementsVisibles}
           />
         );
 
       case "Clients":
         return (
           <Clients
-            clients={clients}
+            clients={clientsVisibles}
             ajouterClient={ajouterClient}
             modifierClient={modifierClient}
             supprimerClient={supprimerClient}
+            comptes={comptes}
+            utilisateur={utilisateurConnecte}
+            attribuerClient={attribuerClient}
           />
         );
 
       case "Devis":
         return (
           <Devis
-            devis={devis}
-            clients={clients}
+            devis={devisVisibles}
+            clients={clientsVisibles}
             ajouterDevis={ajouterDevis}
             changerStatutDevis={changerStatutDevis}
             modifierDevis={modifierDevis}
             supprimerDevis={supprimerDevis}
             convertirDevisEnFacture={convertirDevisEnFacture}
+            lectureSeule={estSuperAdministrateur}
           />
         );
 
       case "Factures":
         return (
           <Factures
-            factures={factures}
-            clients={clients}
+            factures={facturesVisibles}
+            clients={clientsVisibles}
             ajouterFacture={ajouterFacture}
             modifierFacture={modifierFacture}
             supprimerFacture={supprimerFacture}
+            lectureSeule={estSuperAdministrateur}
           />
         );
 
       case "Paiements":
         return (
           <Paiements
-            paiements={paiements}
-            factures={factures}
-            clients={clients}
+            paiements={paiementsVisibles}
+            factures={facturesVisibles}
+            clients={clientsVisibles}
             ajouterPaiement={ajouterPaiement}
             modifierPaiement={modifierPaiement}
             supprimerPaiement={supprimerPaiement}
+            lectureSeule={estSuperAdministrateur}
           />
         );
 
       case "Relances":
         return (
           <Relances
-            factures={factures}
+            factures={facturesVisibles}
+            clients={clientsVisibles}
+            paiements={paiementsVisibles}
+            lectureSeule={estSuperAdministrateur}
+          />
+        );
+
+      case "Administrateurs":
+        if (!estSuperAdministrateur) {
+          return <h1>Accès non autorisé</h1>;
+        }
+
+        return (
+          <Administrateurs
+            comptes={comptes}
             clients={clients}
-            paiements={paiements}
+            ajouterAdministrateur={ajouterAdministrateur}
+            modifierAdministrateur={modifierAdministrateur}
+            supprimerAdministrateur={supprimerAdministrateur}
           />
         );
 
@@ -452,7 +897,7 @@ function App() {
     }
   }
 
-  // Affichage de la connexion ou de l'inscription
+  // CONNEXION ET INSCRIPTION
 
   if (!utilisateurConnecte) {
     return (
@@ -461,12 +906,17 @@ function App() {
           {pageAuth === "Connexion" ? (
             <Connexion
               connecter={connecter}
-              allerInscription={() => setPageAuth("Inscription")}
+              allerInscription={() =>
+                setPageAuth("Inscription")
+              }
+              inscriptionDisponible={!superAdministrateurExiste}
             />
           ) : (
             <Inscription
               inscrire={inscrire}
-              allerConnexion={() => setPageAuth("Connexion")}
+              allerConnexion={() =>
+                setPageAuth("Connexion")
+              }
             />
           )}
         </main>
@@ -478,7 +928,7 @@ function App() {
     );
   }
 
-  // Application principale
+  // APPLICATION PRINCIPALE
 
   return (
     <div className="application">

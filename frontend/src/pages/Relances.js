@@ -1,5 +1,10 @@
 
-function Relances({ factures, clients, paiements }) {
+function Relances({
+  factures,
+  clients,
+  paiements,
+  lectureSeule = false,
+}) {
   const facturesImpayees = factures.filter(
     (facture) => facture.statut !== "Payée"
   );
@@ -18,6 +23,8 @@ function Relances({ factures, clients, paiements }) {
   }
 
   function preparerRelance(facture) {
+    if (lectureSeule) return;
+
     const client = clients.find(
       (c) => c.id === facture.clientId
     );
@@ -27,11 +34,11 @@ function Relances({ factures, clients, paiements }) {
 
     alert(
       `Relance préparée !\n\n` +
-      `Facture : ${facture.numero}\n` +
-      `Client : ${nomClient(facture.clientId)}\n` +
-      `Email : ${email}\n` +
-      `Montant restant : ${restant} DH\n\n` +
-      `Ceci est une simulation. Aucun email n'a été envoyé.`
+        `Facture : ${facture.numero}\n` +
+        `Client : ${nomClient(facture.clientId)}\n` +
+        `Email : ${email}\n` +
+        `Montant restant : ${restant} DH\n\n` +
+        `Ceci est une simulation. Aucun email n'a été envoyé.`
     );
   }
 
@@ -43,8 +50,17 @@ function Relances({ factures, clients, paiements }) {
         Consultez les factures impayées et préparez les relances.
       </p>
 
+      {lectureSeule && (
+        <p className="message-info">
+          Mode consultation : vous pouvez consulter les factures impayées,
+          mais vous ne pouvez pas préparer de relances.
+        </p>
+      )}
+
       <div className="carte">
-        <h2>Factures en attente ({facturesImpayees.length})</h2>
+        <h2>
+          Factures en attente ({facturesImpayees.length})
+        </h2>
 
         {facturesImpayees.length === 0 ? (
           <p className="message-succes">
@@ -68,17 +84,29 @@ function Relances({ factures, clients, paiements }) {
                 {facturesImpayees.map((facture) => (
                   <tr key={facture.id}>
                     <td>{facture.numero}</td>
+
                     <td>{nomClient(facture.clientId)}</td>
+
                     <td>{montantRestant(facture)} DH</td>
+
                     <td>{facture.date}</td>
+
                     <td>{facture.statut}</td>
+
                     <td>
-                      <button
-                        className="bouton petit"
-                        onClick={() => preparerRelance(facture)}
-                      >
-                        Préparer la relance
-                      </button>
+                      {lectureSeule ? (
+                        <span className="sous-titre">
+                          Consultation
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="bouton petit"
+                          onClick={() => preparerRelance(facture)}
+                        >
+                          Préparer la relance
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

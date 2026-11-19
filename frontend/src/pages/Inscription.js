@@ -32,10 +32,10 @@ function Inscription({ allerConnexion, inscrire }) {
       <div className="auth-carte">
         <div className="auth-logo">
           <h1>GestionPro</h1>
-          <p>Créez votre espace de gestion.</p>
+          <p>Initialisation du compte principal de GestionPro.</p>
         </div>
 
-        <h2>Créer un compte</h2>
+        <h2>Créer le Super administrateur</h2>
 
         <form className="formulaire" onSubmit={gererInscription}>
           <label htmlFor="nom">Nom complet</label>

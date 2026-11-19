@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 
-function Connexion({ allerInscription, connecter }) {
+function Connexion({ allerInscription, connecter, inscriptionDisponible }) {
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
 
@@ -58,16 +58,18 @@ function Connexion({ allerInscription, connecter }) {
           </button>
         </form>
 
-        <p className="auth-bas">
-          Vous n'avez pas de compte ?{" "}
-          <button
-            type="button"
-            className="auth-lien"
-            onClick={allerInscription}
-          >
-            Créer un compte
-          </button>
-        </p>
+        {inscriptionDisponible && (
+          <p className="auth-bas">
+            Première utilisation de GestionPro ?{" "}
+            <button
+              type="button"
+              className="auth-lien"
+              onClick={allerInscription}
+            >
+              Créer le compte Super administrateur
+            </button>
+          </p>
+        )}
       </div>
     </section>
   );

@@ -9,6 +9,13 @@ function Menu({ pageActive, changerPage, utilisateur, deconnecter }) {
     { id: "Relances", nom: "Relances" },
   ];
 
+  if (utilisateur?.role === "super_admin") {
+    pages.push({
+      id: "Administrateurs",
+      nom: "Administrateurs",
+    });
+  }
+
   return (
     <nav className="menu">
       <div className="logo">
@@ -20,7 +27,10 @@ function Menu({ pageActive, changerPage, utilisateur, deconnecter }) {
         {pages.map((page) => (
           <button
             key={page.id}
-            className={pageActive === page.id ? "lien actif" : "lien"}
+            type="button"
+            className={
+              pageActive === page.id ? "lien actif" : "lien"
+            }
             onClick={() => changerPage(page.id)}
           >
             {page.nom}
@@ -29,9 +39,17 @@ function Menu({ pageActive, changerPage, utilisateur, deconnecter }) {
       </div>
 
       <div className="menu-utilisateur">
-        <span className="utilisateur-nom">
-          {utilisateur?.nom}
-        </span>
+        <div className="utilisateur-infos">
+          <span className="utilisateur-nom">
+            {utilisateur?.nom}
+          </span>
+
+          <small>
+            {utilisateur?.role === "super_admin"
+              ? "Super administrateur"
+              : "Administrateur"}
+          </small>
+        </div>
 
         <button
           type="button"

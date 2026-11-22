@@ -1,5 +1,20 @@
 
-function Menu({ pageActive, changerPage, utilisateur, deconnecter }) {
+import { useState } from "react";
+import Notifications from "./Notifications";
+
+function Menu({
+  pageActive,
+  changerPage,
+  utilisateur,
+  deconnecter,
+  notifications = [],
+  nombreNotificationsNonLues = 0,
+  marquerCommeLue,
+  marquerToutesCommeLues,
+}) {
+  const [notificationsOuvertes, setNotificationsOuvertes] =
+    useState(false);
+
   const pages = [
     { id: "Accueil", nom: "Accueil" },
     { id: "Clients", nom: "Clients" },
@@ -49,6 +64,39 @@ function Menu({ pageActive, changerPage, utilisateur, deconnecter }) {
               ? "Super administrateur"
               : "Administrateur"}
           </small>
+        </div>
+
+        <div className="notifications-container">
+          <button
+            type="button"
+            className="bouton-notifications"
+            onClick={() =>
+              setNotificationsOuvertes((ouvert) => !ouvert)
+            }
+            aria-label="Ouvrir les notifications"
+            aria-expanded={notificationsOuvertes}
+          >
+            <span className="icone-cloche">🔔</span>
+
+            {nombreNotificationsNonLues > 0 && (
+              <span className="badge-notifications">
+                {nombreNotificationsNonLues > 99
+                  ? "99+"
+                  : nombreNotificationsNonLues}
+              </span>
+            )}
+          </button>
+
+          {notificationsOuvertes && (
+            <Notifications
+              notifications={notifications}
+              marquerCommeLue={marquerCommeLue}
+              marquerToutesCommeLues={marquerToutesCommeLues}
+              fermerNotifications={() =>
+                setNotificationsOuvertes(false)
+              }
+            />
+          )}
         </div>
 
         <button

@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { exporterDocumentPDF } from "../utils/exportPdf";
 
 function Devis({
   devis,
@@ -185,6 +186,39 @@ function Devis({
     setPageActuelle(1);
   }
 
+  function exporterDevisPDF(item) {
+    const client = clients.find((c) => c.id === item.clientId);
+
+    exporterDocumentPDF({
+      titre: "Devis",
+      numero: item.numero,
+      description: "Document récapitulatif de la proposition commerciale.",
+      nomFichier: `devis-${item.numero || item.id}`,
+      sections: [
+        {
+          titre: "Informations du devis",
+          champs: [
+            { label: "Numéro du devis", valeur: item.numero },
+            { label: "Date", valeur: item.date },
+            { label: "Statut", valeur: item.statut || "En attente" },
+            {
+              label: "Montant total",
+              valeur: `${Number(item.montant || 0).toLocaleString("fr-FR")} DH`,
+            },
+          ],
+        },
+        {
+          titre: "Informations du client",
+          champs: [
+            { label: "Nom", valeur: client?.nom || "Client inconnu" },
+            { label: "Email", valeur: client?.email || "Non renseigné" },
+            { label: "Téléphone", valeur: client?.telephone || "Non renseigné" },
+          ],
+        },
+      ],
+    });
+  }
+
   return (
     <section>
       <h1>Gestion des devis</h1>
@@ -331,79 +365,87 @@ function Devis({
                   <td>{item.date}</td>
                   <td>{afficherStatut(item)}</td>
 
-                  <td>
-                    {lectureSeule ? (
-                      <span className="sous-titre">
-                        Consultation
-                      </span>
-                    ) : (
-                      <div className="actions-facture">
-                        {item.statut === "En attente" && (
-                          <>
-                            <button
-                              type="button"
-                              className="bouton petit"
-                              onClick={() => commencerModification(item)}
-                            >
-                              Modifier
-                            </button>
 
-                            <button
-                              type="button"
-                              className="bouton petit bouton-danger"
-                              onClick={() => gererSuppression(item)}
-                            >
-                              Supprimer
-                            </button>
+            <td>
+              <div className="actions-facture">
+                <button
+                  type="button"
+                  className="bouton petit bouton-pdf"
+                  onClick={() => exporterDevisPDF(item)}
+                >
+                  PDF
+                </button>
 
-                            <button
-                              type="button"
-                              className="bouton petit"
-                              onClick={() => simulerEnvoi(item.id)}
-                            >
-                              Simuler l'envoi
-                            </button>
-                          </>
-                        )}
+                {!lectureSeule && (
+                  <>
+                    {item.statut === "En attente" && (
+                      <>
+                        <button
+                          type="button"
+                          className="bouton petit"
+                          onClick={() => commencerModification(item)}
+                        >
+                          Modifier
+                        </button>
 
-                        {item.statut === "Envoyé" && (
-                          <>
-                            <button
-                              type="button"
-                              className="bouton petit"
-                              onClick={() => accepterDevis(item.id)}
-                            >
-                              Accepter
-                            </button>
+                        <button
+                          type="button"
+                          className="bouton petit bouton-danger"
+                          onClick={() => gererSuppression(item)}
+                        >
+                          Supprimer
+                        </button>
 
-                            <button
-                              type="button"
-                              className="bouton petit bouton-danger"
-                              onClick={() => gererSuppression(item)}
-                            >
-                              Supprimer
-                            </button>
-                          </>
-                        )}
-
-                        {item.statut === "Accepté" && !item.factureId && (
-                          <button
-                            type="button"
-                            className="bouton petit"
-                            onClick={() => convertirDevis(item.id)}
-                          >
-                            Convertir en facture
-                          </button>
-                        )}
-
-                        {item.statut === "Converti" && (
-                          <span className="badge payee">
-                            Facture créée
-                          </span>
-                        )}
-                      </div>
+                        <button
+                          type="button"
+                          className="bouton petit"
+                          onClick={() => simulerEnvoi(item.id)}
+                        >
+                          Simuler l'envoi
+                        </button>
+                      </>
                     )}
-                  </td>
+
+                    {item.statut === "Envoyé" && (
+                      <>
+                        <button
+                          type="button"
+                          className="bouton petit"
+                          onClick={() => accepterDevis(item.id)}
+                        >
+                          Accepter
+                        </button>
+
+                        <button
+                          type="button"
+                          className="bouton petit bouton-danger"
+                          onClick={() => gererSuppression(item)}
+                        >
+                          Supprimer
+                        </button>
+                      </>
+                    )}
+
+                    {item.statut === "Accepté" && !item.factureId && (
+                      <button
+                        type="button"
+                        className="bouton petit"
+                        onClick={() => convertirDevis(item.id)}
+                      >
+                        Convertir en facture
+                      </button>
+                    )}
+
+                    {item.statut === "Converti" && (
+                      <span className="badge payee">
+                        Facture créée
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            </td>
+
                 </tr>
               ))}
 

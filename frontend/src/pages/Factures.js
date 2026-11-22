@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { exporterDocumentPDF } from "../utils/exportPdf";
 
 function Factures({
   factures,
@@ -12,11 +13,11 @@ function Factures({
   const [clientId, setClientId] = useState("");
   const [montant, setMontant] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [dateEcheance, setDateEcheance] = useState("");
   const [factureEnCours, setFactureEnCours] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("tous");
 
-  // Pagination
   const [pageActuelle, setPageActuelle] = useState(1);
   const facturesParPage = 5;
 
@@ -24,6 +25,7 @@ function Factures({
     setClientId("");
     setMontant("");
     setDate(new Date().toISOString().slice(0, 10));
+    setDateEcheance("");
     setFactureEnCours(null);
   }
 
@@ -32,8 +34,15 @@ function Factures({
 
     if (lectureSeule) return;
 
-    if (!clientId || Number(montant) <= 0 || !date) {
-      alert("Veuillez choisir un client, un montant valide et une date.");
+    if (!clientId || Number(montant) <= 0 || !date || !dateEcheance) {
+      alert("Veuillez remplir tous les champs avec des valeurs valides.");
+      return;
+    }
+
+    if (dateEcheance < date) {
+      alert(
+        "La date d'échéance doit être égale ou postérieure à la date de facture."
+      );
       return;
     }
 
@@ -41,6 +50,7 @@ function Factures({
       clientId: Number(clientId),
       montant: Number(montant),
       date,
+      dateEcheance,
     };
 
     if (factureEnCours) {
@@ -73,6 +83,7 @@ function Factures({
     setClientId(String(facture.clientId));
     setMontant(String(facture.montant));
     setDate(facture.date);
+    setDateEcheance(facture.dateEcheance || "");
   }
 
   function gererSuppression(facture) {
@@ -96,18 +107,19 @@ function Factures({
     return client ? client.nom : "Client inconnu";
   }
 
-  // Recherche et filtrage des factures
   const facturesFiltrees = factures.filter((facture) => {
     const terme = recherche.trim().toLowerCase();
 
     const numero = String(facture.numero || "").toLowerCase();
     const nom = nomClient(facture.clientId).toLowerCase();
     const dateFacture = String(facture.date || "").toLowerCase();
+    const echeance = String(facture.dateEcheance || "").toLowerCase();
 
     const correspondRecherche =
       numero.includes(terme) ||
       nom.includes(terme) ||
-      dateFacture.includes(terme);
+      dateFacture.includes(terme) ||
+      echeance.includes(terme);
 
     const correspondStatut =
       filtreStatut === "tous" ||
@@ -116,7 +128,6 @@ function Factures({
     return correspondRecherche && correspondStatut;
   });
 
-  // Calcul de la pagination
   const nombrePages = Math.ceil(
     facturesFiltrees.length / facturesParPage
   );
@@ -142,6 +153,46 @@ function Factures({
   function changerFiltre(e) {
     setFiltreStatut(e.target.value);
     setPageActuelle(1);
+  }
+
+  function exporterFacturePDF(facture) {
+    const client = clients.find((c) => c.id === facture.clientId);
+
+    exporterDocumentPDF({
+      titre: "Facture",
+      numero: facture.numero,
+      description: "Document récapitulatif de facturation.",
+      nomFichier: `facture-${facture.numero || facture.id}`,
+      sections: [
+        {
+          titre: "Informations de la facture",
+          champs: [
+            { label: "Numéro de facture", valeur: facture.numero },
+            { label: "Date d'émission", valeur: facture.date },
+            {
+              label: "Date d'échéance",
+              valeur: facture.dateEcheance || "Non définie",
+            },
+            { label: "Statut", valeur: facture.statut || "En attente" },
+            {
+              label: "Montant total",
+              valeur: `${Number(facture.montant || 0).toLocaleString("fr-FR")} DH`,
+            },
+          ],
+        },
+        {
+          titre: "Informations du client",
+          champs: [
+            { label: "Nom", valeur: client?.nom || "Client inconnu" },
+            { label: "Email", valeur: client?.email || "Non renseigné" },
+            {
+              label: "Téléphone",
+              valeur: client?.telephone || "Non renseigné",
+            },
+          ],
+        },
+      ],
+    });
   }
 
   return (
@@ -171,7 +222,10 @@ function Factures({
             <p>Ajoutez d'abord un client dans la page Clients.</p>
           ) : (
             <form onSubmit={gererAjout} className="formulaire">
+              <label htmlFor="clientFacture">Client</label>
+
               <select
+                id="clientFacture"
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 required
@@ -185,7 +239,10 @@ function Factures({
                 ))}
               </select>
 
+              <label htmlFor="montantFacture">Montant (DH)</label>
+
               <input
+                id="montantFacture"
                 type="number"
                 min="0.01"
                 step="0.01"
@@ -195,10 +252,26 @@ function Factures({
                 required
               />
 
+              <label htmlFor="dateFacture">Date de facture</label>
+
               <input
+                id="dateFacture"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                required
+              />
+
+              <label htmlFor="dateEcheance">
+                Date d'échéance
+              </label>
+
+              <input
+                id="dateEcheance"
+                type="date"
+                min={date}
+                value={dateEcheance}
+                onChange={(e) => setDateEcheance(e.target.value)}
                 required
               />
 
@@ -278,6 +351,7 @@ function Factures({
                 <th>Client</th>
                 <th>Montant</th>
                 <th>Date</th>
+                <th>Échéance</th>
                 <th>Statut</th>
                 <th>Action</th>
               </tr>
@@ -290,6 +364,7 @@ function Factures({
                   <td>{nomClient(facture.clientId)}</td>
                   <td>{facture.montant} DH</td>
                   <td>{facture.date}</td>
+                  <td>{facture.dateEcheance || "Non définie"}</td>
 
                   <td>
                     <span
@@ -303,38 +378,50 @@ function Factures({
                     </span>
                   </td>
 
-                  <td>
-                    {lectureSeule ? (
-                      <span className="sous-titre">
-                        Consultation
-                      </span>
-                    ) : (
-                      <div className="actions-facture">
-                        <button
-                          type="button"
-                          className="bouton petit"
-                          onClick={() => commencerModification(facture)}
-                          disabled={facture.statut !== "En attente"}
-                        >
-                          Modifier
-                        </button>
 
-                        <button
-                          type="button"
-                          className="bouton petit bouton-danger"
-                          onClick={() => gererSuppression(facture)}
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    )}
+                  <td>
+                    <div className="actions-facture">
+                      <button
+                        type="button"
+                        className="bouton petit bouton-pdf"
+                        onClick={() => exporterFacturePDF(facture)}
+                      >
+                        PDF
+                      </button>
+
+                      {!lectureSeule && (
+                        <>
+                          <button
+                            type="button"
+                            className="bouton petit"
+                            onClick={() => commencerModification(facture)}
+                            disabled={facture.statut !== "En attente"}
+                          >
+                            Modifier
+                          </button>
+
+                          <button
+                            type="button"
+                            className="bouton petit bouton-danger"
+                            onClick={() => gererSuppression(facture)}
+                          >
+                            Supprimer
+                          </button>
+                        </>
+                      )}
+
+                      {lectureSeule && (
+                        <span className="sous-titre">Consultation</span>
+                      )}
+                    </div>
                   </td>
+
                 </tr>
               ))}
 
               {facturesFiltrees.length === 0 && (
                 <tr>
-                  <td colSpan="6">
+                  <td colSpan="7">
                     {factures.length === 0
                       ? "Aucune facture disponible."
                       : "Aucune facture ne correspond à votre recherche ou à votre filtre."}
@@ -345,7 +432,6 @@ function Factures({
           </table>
         </div>
 
-        {/* Pagination */}
         {nombrePages > 1 && (
           <div
             className="pagination"

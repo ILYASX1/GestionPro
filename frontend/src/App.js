@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Menu from "./components/Menu";
 import Connexion from "./pages/Connexion";
@@ -43,6 +43,149 @@ function App() {
     }
   });
 
+  // NOTIFICATIONS
+  const [notifications, setNotifications] = useState([]);
+  const [toast, setToast] = useState(null);
+
+  // Évite de générer plusieurs fois le même rappel automatique.
+  const notificationsAutomatiquesRef = useRef(new Set());
+
+  function afficherToast(message) {
+    setToast({ id: Date.now(), message });
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+
+    const minuteur = setTimeout(() => {
+      setToast(null);
+    }, 3500);
+
+    return () => clearTimeout(minuteur);
+  }, [toast]);
+
+  function ajouterNotification(titre, message, clientId = null) {
+    const nouvelleNotification = {
+      id: Date.now() + Math.random(),
+      titre,
+      message,
+      clientId,
+      date: new Date().toLocaleString("fr-FR"),
+      lue: false,
+    };
+
+    setNotifications((anciennes) => [
+      nouvelleNotification,
+      ...anciennes,
+    ]);
+
+    afficherToast(message);
+  }
+
+  // RAPPELS AUTOMATIQUES DES ÉCHÉANCES
+  // Ces rappels apparaissent dans la cloche, sans afficher de toast.
+
+  useEffect(() => {
+    const aujourdHui = new Date();
+    aujourdHui.setHours(0, 0, 0, 0);
+
+    const nouveauxRappels = [];
+
+    factures.forEach((facture) => {
+      if (!facture.dateEcheance) return;
+
+      const dateEcheance = new Date(
+        `${facture.dateEcheance}T00:00:00`
+      );
+
+      if (Number.isNaN(dateEcheance.getTime())) return;
+
+      const totalPaye = paiements
+        .filter(
+          (paiement) =>
+            String(paiement.factureId) === String(facture.id)
+        )
+        .reduce(
+          (total, paiement) => total + Number(paiement.montant || 0),
+          0
+        );
+
+      const montantRestant =
+        Number(facture.montant || 0) - totalPaye;
+
+      if (montantRestant <= 0) return;
+
+      const differenceJours = Math.round(
+        (dateEcheance.getTime() - aujourdHui.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      let typeRappel = "";
+      let titre = "";
+      let message = "";
+
+      if (differenceJours < 0) {
+        typeRappel = "retard";
+        titre = "Facture en retard";
+
+        message = `La facture ${facture.numero || ""} est en retard. Reste à payer : ${montantRestant.toFixed(2)} DH.`;
+      } else if (differenceJours <= 3) {
+        typeRappel = "echeance-proche";
+        titre = "Échéance proche";
+
+        message =
+          differenceJours === 0
+            ? `La facture ${facture.numero || ""} arrive à échéance aujourd'hui. Reste à payer : ${montantRestant.toFixed(2)} DH.`
+            : `La facture ${facture.numero || ""} arrive à échéance dans ${differenceJours} jour(s). Reste à payer : ${montantRestant.toFixed(2)} DH.`;
+      }
+
+      if (!typeRappel) return;
+
+      const cleRappel = `${facture.id}-${typeRappel}-${facture.dateEcheance}`;
+
+      if (notificationsAutomatiquesRef.current.has(cleRappel)) {
+        return;
+      }
+
+      notificationsAutomatiquesRef.current.add(cleRappel);
+
+      nouveauxRappels.push({
+        id: Date.now() + Math.random(),
+        titre,
+        message,
+        clientId: facture.clientId,
+        date: new Date().toLocaleString("fr-FR"),
+        lue: false,
+      });
+    });
+
+    if (nouveauxRappels.length > 0) {
+      setNotifications((anciennes) => [
+        ...nouveauxRappels,
+        ...anciennes,
+      ]);
+    }
+  }, [factures, paiements]);
+
+  function marquerCommeLue(id) {
+    setNotifications((anciennes) =>
+      anciennes.map((notification) =>
+        notification.id === id
+          ? { ...notification, lue: true }
+          : notification
+      )
+    );
+  }
+
+  function marquerToutesCommeLues() {
+    setNotifications((anciennes) =>
+      anciennes.map((notification) => ({
+        ...notification,
+        lue: true,
+      }))
+    );
+  }
+
   // SAUVEGARDE DES COMPTES
 
   useEffect(() => {
@@ -84,7 +227,7 @@ function App() {
 
   const paiementsVisibles = paiements.filter((paiement) => {
     const facture = factures.find(
-      (item) => item.id === paiement.factureId
+      (item) => String(item.id) === String(paiement.factureId)
     );
 
     return (
@@ -92,6 +235,18 @@ function App() {
       idsClientsVisibles.includes(facture.clientId)
     );
   });
+
+  // NOTIFICATIONS VISIBLES SELON LE RÔLE
+
+  const notificationsVisibles = notifications.filter(
+    (notification) =>
+      estSuperAdministrateur ||
+      idsClientsVisibles.includes(notification.clientId)
+  );
+
+  const nombreNotificationsNonLues = notificationsVisibles.filter(
+    (notification) => !notification.lue
+  ).length;
 
   // AUTHENTIFICATION
 
@@ -461,11 +616,20 @@ function App() {
       ...anciennesFactures,
       facture,
     ]);
+
+    ajouterNotification(
+      "Nouvelle facture",
+      `La facture ${facture.numero || ""} a été créée.`,
+      facture.clientId
+    );
   }
+
+  // CONVERSION D'UN DEVIS EN FACTURE
+  // Échéance automatique fixée à 30 jours.
 
   function convertirDevisEnFacture(id) {
     const devisSelectionne = devis.find(
-      (item) => item.id === id
+      (item) => String(item.id) === String(id)
     );
 
     if (!devisSelectionne) return;
@@ -484,9 +648,21 @@ function App() {
       return;
     }
 
-    const dateActuelle = new Date()
-      .toISOString()
-      .slice(0, 10);
+    // Date locale de création au format YYYY-MM-DD.
+    const aujourdHui = new Date();
+
+    const formaterDate = (date) =>
+      [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+      ].join("-");
+
+    const dateActuelle = formaterDate(aujourdHui);
+
+    // Échéance par défaut : 30 jours après la création.
+    const dateEcheance = new Date(aujourdHui);
+    dateEcheance.setDate(dateEcheance.getDate() + 30);
 
     const nouvelId = Date.now();
 
@@ -496,6 +672,7 @@ function App() {
       clientId: devisSelectionne.clientId,
       montant: devisSelectionne.montant,
       date: dateActuelle,
+      dateEcheance: formaterDate(dateEcheance),
       statut: "En attente",
       devisId: devisSelectionne.id,
     };
@@ -507,7 +684,7 @@ function App() {
 
     setDevis((anciensDevis) =>
       anciensDevis.map((item) =>
-        item.id === id
+        String(item.id) === String(id)
           ? {
               ...item,
               statut: "Converti",
@@ -517,7 +694,11 @@ function App() {
       )
     );
 
-    alert("Le devis a été converti en facture avec succès.");
+    ajouterNotification(
+      "Facture créée",
+      `Le devis ${devisSelectionne.numero || ""} a été converti en facture. Échéance : ${nouvelleFacture.dateEcheance}.`,
+      devisSelectionne.clientId
+    );
   }
 
   function modifierFacture(id, donnees) {
@@ -570,6 +751,12 @@ function App() {
       ...anciensDevis,
       nouveauDevis,
     ]);
+
+    ajouterNotification(
+      "Nouveau devis",
+      `Le devis ${nouveauDevis.numero || ""} a été créé.`,
+      nouveauDevis.clientId
+    );
   }
 
   function changerStatutDevis(id, nouveauStatut) {
@@ -716,6 +903,12 @@ function App() {
     actualiserStatutFacture(
       paiement.factureId,
       nouveauxPaiements
+    );
+
+    ajouterNotification(
+      "Paiement enregistré",
+      `Un paiement de ${Number(paiement.montant).toFixed(2)} DH a été enregistré pour la facture ${facture.numero || ""}.`,
+      facture.clientId
     );
   }
 
@@ -932,11 +1125,28 @@ function App() {
 
   return (
     <div className="application">
+      {toast && (
+        <div className="notification-toast" role="status">
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Fermer la notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <Menu
         pageActive={pageActive}
         changerPage={setPageActive}
         utilisateur={utilisateurConnecte}
         deconnecter={deconnecter}
+        notifications={notificationsVisibles}
+        nombreNotificationsNonLues={nombreNotificationsNonLues}
+        marquerCommeLue={marquerCommeLue}
+        marquerToutesCommeLues={marquerToutesCommeLues}
       />
 
       <main className="contenu">

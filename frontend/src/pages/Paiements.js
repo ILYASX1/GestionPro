@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { exporterDocumentPDF } from "../utils/exportPdf";
 
 function Paiements({
   paiements,
@@ -18,7 +19,6 @@ function Paiements({
   const [recherche, setRecherche] = useState("");
   const [filtreMode, setFiltreMode] = useState("tous");
 
-  // Pagination
   const [pageActuelle, setPageActuelle] = useState(1);
   const paiementsParPage = 5;
 
@@ -153,7 +153,90 @@ function Paiements({
     return client ? client.nom : "Client inconnu";
   }
 
-  // Recherche et filtrage des paiements
+  function exporterPaiementPDF(paiement) {
+    const facture = factures.find((f) => f.id === paiement.factureId);
+
+    const client = facture
+      ? clients.find((c) => c.id === facture.clientId)
+      : null;
+
+    const totalVerse = facture
+      ? totalPaye(facture.id)
+      : Number(paiement.montant || 0);
+
+    const reste = facture
+      ? Math.max(0, Number(facture.montant || 0) - totalVerse)
+      : null;
+
+    exporterDocumentPDF({
+      titre: "Reçu de paiement",
+      numero: `PAY-${paiement.id}`,
+      description: "Justificatif d'enregistrement d'un paiement.",
+      nomFichier: `recu-paiement-${paiement.id}`,
+      sections: [
+        {
+          titre: "Détails du paiement",
+          champs: [
+            {
+              label: "Référence du reçu",
+              valeur: `PAY-${paiement.id}`,
+            },
+            {
+              label: "Date du paiement",
+              valeur: paiement.date,
+            },
+            {
+              label: "Montant reçu",
+              valeur: `${Number(paiement.montant || 0).toLocaleString("fr-FR")} DH`,
+            },
+            {
+              label: "Mode de paiement",
+              valeur: paiement.mode,
+            },
+          ],
+        },
+        {
+          titre: "Facture associée",
+          champs: [
+            {
+              label: "Numéro de facture",
+              valeur: facture?.numero || "Inconnue",
+            },
+            {
+              label: "Montant de la facture",
+              valeur: facture
+                ? `${Number(facture.montant || 0).toLocaleString("fr-FR")} DH`
+                : "—",
+            },
+            {
+              label: "Total payé sur la facture",
+              valeur: facture
+                ? `${totalVerse.toLocaleString("fr-FR")} DH`
+                : "—",
+            },
+            {
+              label: "Reste à payer",
+              valeur: reste === null
+                ? "—"
+                : `${reste.toLocaleString("fr-FR")} DH`,
+            },
+          ],
+        },
+        {
+          titre: "Informations du client",
+          champs: [
+            { label: "Nom", valeur: client?.nom || "Client inconnu" },
+            { label: "Email", valeur: client?.email || "Non renseigné" },
+            {
+              label: "Téléphone",
+              valeur: client?.telephone || "Non renseigné",
+            },
+          ],
+        },
+      ],
+    });
+  }
+
   const paiementsFiltres = paiements.filter((paiement) => {
     const terme = recherche.trim().toLowerCase();
 
@@ -187,7 +270,6 @@ function Paiements({
     return correspondRecherche && correspondMode;
   });
 
-  // Calcul de la pagination
   const nombrePages = Math.ceil(
     paiementsFiltres.length / paiementsParPage
   );
@@ -420,31 +502,43 @@ function Paiements({
                     <td>{paiement.date}</td>
                     <td>{paiement.mode}</td>
 
-                    <td>
-                      {lectureSeule ? (
-                        <span className="sous-titre">
-                          Consultation
-                        </span>
-                      ) : (
-                        <div className="actions-facture">
-                          <button
-                            type="button"
-                            className="bouton petit"
-                            onClick={() => commencerModification(paiement)}
-                          >
-                            Modifier
-                          </button>
 
-                          <button
-                            type="button"
-                            className="bouton petit bouton-danger"
-                            onClick={() => gererSuppression(paiement)}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      )}
+                    <td>
+                      <div className="actions-facture">
+                        <button
+                          type="button"
+                          className="bouton petit bouton-pdf"
+                          onClick={() => exporterPaiementPDF(paiement)}
+                        >
+                          PDF
+                        </button>
+
+                        {!lectureSeule && (
+                          <>
+                            <button
+                              type="button"
+                              className="bouton petit"
+                              onClick={() => commencerModification(paiement)}
+                            >
+                              Modifier
+                            </button>
+
+                            <button
+                              type="button"
+                              className="bouton petit bouton-danger"
+                              onClick={() => gererSuppression(paiement)}
+                            >
+                              Supprimer
+                            </button>
+                          </>
+                        )}
+
+                        {lectureSeule && (
+                          <span className="sous-titre">Consultation</span>
+                        )}
+                      </div>
                     </td>
+
                   </tr>
                 );
               })}
@@ -462,7 +556,6 @@ function Paiements({
           </table>
         </div>
 
-        {/* Pagination */}
         {nombrePages > 1 && (
           <div
             className="pagination"

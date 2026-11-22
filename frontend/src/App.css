@@ -900,3 +900,417 @@ tbody tr:last-child td {
   }
 }
 
+
+/* =========================================
+   18. MENU DE NAVIGATION - CORRECTION
+========================================= */
+
+.menu {
+  position: relative;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: nowrap;
+}
+
+.menu-liens {
+  position: static;
+  left: auto;
+  transform: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.menu-utilisateur {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.utilisateur-infos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.utilisateur-infos small {
+  color: #bfdbfe;
+  font-size: 11px;
+}
+
+/* =========================================
+   19. BOUTON DE NOTIFICATIONS
+========================================= */
+
+.notifications-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.bouton-notifications {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(191, 219, 254, 0.4);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.bouton-notifications:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.icone-cloche {
+  font-size: 23px;
+  line-height: 1;
+}
+
+.badge-notifications {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border: 2px solid #172554;
+  border-radius: 20px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* =========================================
+   20. PANNEAU DES NOTIFICATIONS
+========================================= */
+
+.notifications-panel {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  z-index: 1000;
+  width: 350px;
+  max-width: calc(100vw - 30px);
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.2);
+  animation: apparitionNotifications 0.18s ease-out;
+}
+
+@keyframes apparitionNotifications {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notifications-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.notifications-header h3 {
+  margin: 0 0 5px;
+  color: #172554;
+  font-size: 18px;
+}
+
+.notifications-header span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.notifications-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 20px;
+}
+
+.notifications-close:hover {
+  background: #e2e8f0;
+}
+
+.notifications-read-all {
+  display: block;
+  margin: 12px 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.notifications-read-all:hover {
+  text-decoration: underline;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  transition: background 0.2s;
+}
+
+.notification-unread {
+  border-left: 3px solid #2563eb;
+  background: #eff6ff;
+}
+
+.notification-read {
+  background: #ffffff;
+}
+
+.notification-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.notification-content strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #172554;
+  font-size: 13px;
+}
+
+.notification-content p {
+  margin: 0 0 7px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.notification-content small {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.notification-mark-read {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.notification-mark-read:hover {
+  background: #bfdbfe;
+}
+
+.notifications-empty {
+  padding: 25px 10px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* =========================================
+   21. TOAST - MESSAGE TEMPORAIRE
+========================================= */
+
+.notification-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 14px 17px;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #2563eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 8px 25px rgba(15, 23, 42, 0.16);
+  animation: apparitionToast 0.25s ease-out;
+}
+
+.notification-toast span {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notification-toast button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 18px;
+}
+
+.notification-toast button:hover {
+  background: #e2e8f0;
+}
+
+@keyframes apparitionToast {
+  from {
+    opacity: 0;
+    transform: translateX(15px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* =========================================
+   22. ADAPTATION TABLETTES ET MOBILES
+========================================= */
+
+@media (max-width: 1000px) {
+  .menu {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .menu-liens {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .menu-utilisateur {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 650px) {
+  .menu {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .menu-liens {
+    order: 0;
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .menu-utilisateur {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+
+  .notifications-panel {
+    position: fixed;
+    top: 145px;
+    right: 12px;
+    width: calc(100vw - 24px);
+    max-width: 400px;
+    max-height: 65vh;
+  }
+
+  .notification-toast {
+    top: 12px;
+    right: 12px;
+    max-width: calc(100vw - 24px);
+  }
+}
+
+/* Badge pour une facture partiellement payée */
+.badge.partielle {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Alignement des boutons d'action */
+.actions-facture {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.actions-facture button {
+  flex-shrink: 0;
+}
+
+/* Donner suffisamment de largeur à la colonne Action */
+.table-responsive td:last-child {
+  min-width: 240px;
+}
+
+/* Garder le tableau accessible sur les petits écrans */
+.table-responsive {
+  overflow-x: auto;
+}

@@ -1,45 +1,110 @@
 
+import { exporterDocumentPDF } from "../utils/exportPdf";
+
 function Relances({
   factures,
   clients,
   paiements,
   lectureSeule = false,
 }) {
-  const facturesImpayees = factures.filter(
-    (facture) => facture.statut !== "Payée"
-  );
-
   function nomClient(id) {
     const client = clients.find((c) => c.id === id);
     return client ? client.nom : "Client inconnu";
   }
 
-  function montantRestant(facture) {
-    const totalPaye = paiements
-      .filter((p) => p.factureId === facture.id)
-      .reduce((total, p) => total + Number(p.montant), 0);
-
-    return Math.max(0, Number(facture.montant) - totalPaye);
+  function trouverClient(facture) {
+    return clients.find((client) => client.id === facture.clientId);
   }
+
+  function totalPaye(facture) {
+    return paiements
+      .filter((paiement) => paiement.factureId === facture.id)
+      .reduce(
+        (total, paiement) => total + Number(paiement.montant || 0),
+        0
+      );
+  }
+
+  function montantRestant(facture) {
+    return Math.max(
+      0,
+      Number(facture.montant || 0) - totalPaye(facture)
+    );
+  }
+
+  const facturesImpayees = factures.filter(
+    (facture) => montantRestant(facture) > 0
+  );
 
   function preparerRelance(facture) {
     if (lectureSeule) return;
 
-    const client = clients.find(
-      (c) => c.id === facture.clientId
-    );
-
-    const email = client ? client.email : "Non disponible";
+    const client = trouverClient(facture);
     const restant = montantRestant(facture);
 
     alert(
       `Relance préparée !\n\n` +
         `Facture : ${facture.numero}\n` +
         `Client : ${nomClient(facture.clientId)}\n` +
-        `Email : ${email}\n` +
+        `Email : ${client?.email || "Non disponible"}\n` +
         `Montant restant : ${restant} DH\n\n` +
         `Ceci est une simulation. Aucun email n'a été envoyé.`
     );
+  }
+
+  function exporterRelancePDF(facture) {
+    const client = trouverClient(facture);
+    const restant = montantRestant(facture);
+
+    exporterDocumentPDF({
+      titre: "Relance de paiement",
+      numero: facture.numero,
+      description:
+        "Rappel concernant le règlement du solde restant de la facture ci-dessous.",
+      nomFichier: `relance-${facture.numero || facture.id}`,
+      sections: [
+        {
+          titre: "Destinataire",
+          champs: [
+            { label: "Client", valeur: client?.nom || "Client inconnu" },
+            { label: "Email", valeur: client?.email || "Non renseigné" },
+            {
+              label: "Téléphone",
+              valeur: client?.telephone || "Non renseigné",
+            },
+          ],
+        },
+        {
+          titre: "Détails de la facture",
+          champs: [
+            { label: "Numéro de facture", valeur: facture.numero },
+            { label: "Date de facture", valeur: facture.date },
+            {
+              label: "Date d'échéance",
+              valeur: facture.dateEcheance || "Non définie",
+            },
+            {
+              label: "Montant initial",
+              valeur: `${Number(facture.montant || 0).toLocaleString("fr-FR")} DH`,
+            },
+            {
+              label: "Montant déjà payé",
+              valeur: `${totalPaye(facture).toLocaleString("fr-FR")} DH`,
+            },
+            {
+              label: "Montant restant dû",
+              valeur: `${restant.toLocaleString("fr-FR")} DH`,
+            },
+            {
+              label: "Statut",
+              valeur: facture.statut || "En attente",
+            },
+          ],
+        },
+      ],
+      pied:
+        "Merci de procéder au règlement du solde restant. Document généré avec GestionPro.",
+    });
   }
 
   return (
@@ -84,29 +149,33 @@ function Relances({
                 {facturesImpayees.map((facture) => (
                   <tr key={facture.id}>
                     <td>{facture.numero}</td>
-
                     <td>{nomClient(facture.clientId)}</td>
-
-                    <td>{montantRestant(facture)} DH</td>
-
+                    <td>
+                      {montantRestant(facture).toLocaleString("fr-FR")} DH
+                    </td>
                     <td>{facture.date}</td>
-
                     <td>{facture.statut}</td>
 
                     <td>
-                      {lectureSeule ? (
-                        <span className="sous-titre">
-                          Consultation
-                        </span>
-                      ) : (
+                      <div className="actions-facture">
                         <button
                           type="button"
-                          className="bouton petit"
-                          onClick={() => preparerRelance(facture)}
+                          className="bouton petit bouton-pdf"
+                          onClick={() => exporterRelancePDF(facture)}
                         >
-                          Préparer la relance
+                          PDF
                         </button>
-                      )}
+
+                        {!lectureSeule && (
+                          <button
+                            type="button"
+                            className="bouton petit"
+                            onClick={() => preparerRelance(facture)}
+                          >
+                            Préparer la relance
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

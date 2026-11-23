@@ -307,12 +307,7 @@ function Paiements({
           : "Enregistrez, modifiez et consultez les paiements de vos clients."}
       </p>
 
-      {lectureSeule && (
-        <p className="message-info">
-          Mode consultation : vous pouvez consulter les paiements,
-          mais vous ne pouvez pas les modifier ni les supprimer.
-        </p>
-      )}
+
 
       {!lectureSeule && (
         <div className="carte">
@@ -533,9 +528,7 @@ function Paiements({
                           </>
                         )}
 
-                        {lectureSeule && (
-                          <span className="sous-titre">Consultation</span>
-                        )}
+
                       </div>
                     </td>
 

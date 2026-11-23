@@ -205,12 +205,7 @@ function Factures({
           : "Créez, modifiez et suivez vos factures."}
       </p>
 
-      {lectureSeule && (
-        <p className="message-info">
-          Mode consultation : vous pouvez consulter les factures,
-          mais vous ne pouvez pas les modifier ni les supprimer.
-        </p>
-      )}
+
 
       {!lectureSeule && (
         <div className="carte">
@@ -410,9 +405,6 @@ function Factures({
                         </>
                       )}
 
-                      {lectureSeule && (
-                        <span className="sous-titre">Consultation</span>
-                      )}
                     </div>
                   </td>
 

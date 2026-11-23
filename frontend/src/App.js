@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Menu from "./components/Menu";
 import Connexion from "./pages/Connexion";
 import Inscription from "./pages/Inscription";
+import MonCompte from "./pages/MonCompte";
 
 import {
   clientsInitiaux,
@@ -439,6 +440,85 @@ function App() {
 
     alert("Le compte administrateur a été supprimé.");
   }
+
+
+  // MODIFICATION DU COMPTE PERSONNEL
+
+  function modifierMonCompte(donnees) {
+    if (!utilisateurConnecte) {
+      alert("Vous devez être connecté pour modifier votre compte.");
+      return false;
+    }
+
+    const compteActuel = comptes.find(
+      (compte) => compte.id === utilisateurConnecte.id
+    );
+
+    if (!compteActuel) {
+      alert("Votre compte est introuvable.");
+      return false;
+    }
+
+    const emailNormalise = donnees.email.trim().toLowerCase();
+
+    const emailExiste = comptes.some(
+      (compte) =>
+        compte.id !== utilisateurConnecte.id &&
+        compte.email.toLowerCase() === emailNormalise
+    );
+
+    if (emailExiste) {
+      alert("Cette adresse email est déjà utilisée par un autre compte.");
+      return false;
+    }
+
+    const changementMotDePasse = Boolean(
+      donnees.motDePasseActuel || donnees.nouveauMotDePasse
+    );
+
+    if (changementMotDePasse) {
+      if (compteActuel.motDePasse !== donnees.motDePasseActuel) {
+        alert("Votre mot de passe actuel est incorrect.");
+        return false;
+      }
+
+      if (
+        !donnees.nouveauMotDePasse ||
+        donnees.nouveauMotDePasse.length < 6
+      ) {
+        alert("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+        return false;
+      }
+    }
+
+    const compteMisAJour = {
+      ...compteActuel,
+      nom: donnees.nom.trim(),
+      email: emailNormalise,
+      ...(changementMotDePasse
+        ? { motDePasse: donnees.nouveauMotDePasse }
+        : {}),
+    };
+
+    setComptes((anciensComptes) =>
+      anciensComptes.map((compte) =>
+        compte.id === utilisateurConnecte.id
+          ? compteMisAJour
+          : compte
+      )
+    );
+
+    setUtilisateurConnecte({
+      id: compteMisAJour.id,
+      nom: compteMisAJour.nom,
+      email: compteMisAJour.email,
+      role: compteMisAJour.role,
+    });
+
+    alert("Votre compte a été mis à jour avec succès.");
+    return true;
+  }
+
 
   // GESTION DES CLIENTS
 
@@ -1085,6 +1165,15 @@ function App() {
           />
         );
 
+      case "MonCompte":
+        return (
+          <MonCompte
+            utilisateur={utilisateurConnecte}
+            modifierCompte={modifierMonCompte}
+            retour={() => setPageActive("Accueil")}
+          />
+        );
+
       default:
         return <h1>{pageActive}</h1>;
     }
@@ -1142,6 +1231,7 @@ function App() {
         pageActive={pageActive}
         changerPage={setPageActive}
         utilisateur={utilisateurConnecte}
+        ouvrirMonCompte={() => setPageActive("MonCompte")}
         deconnecter={deconnecter}
         notifications={notificationsVisibles}
         nombreNotificationsNonLues={nombreNotificationsNonLues}
@@ -1150,7 +1240,9 @@ function App() {
       />
 
       <main className="contenu">
-        {afficherPage()}
+        <div key={pageActive} className="page-transition">
+          {afficherPage()}
+        </div>
       </main>
 
       <footer className="pied-page">

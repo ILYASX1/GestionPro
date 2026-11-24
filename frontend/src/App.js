@@ -1182,6 +1182,7 @@ function App() {
           <Devis
             devis={devisVisibles}
             clients={clientsVisibles}
+            produits={produits}
             ajouterDevis={ajouterDevis}
             changerStatutDevis={changerStatutDevis}
             modifierDevis={modifierDevis}

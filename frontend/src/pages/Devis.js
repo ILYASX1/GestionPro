@@ -1,10 +1,10 @@
-
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { exporterDocumentPDF } from "../utils/exportPdf";
 
 function Devis({
   devis,
   clients,
+  produits,
   ajouterDevis,
   changerStatutDevis,
   modifierDevis,
@@ -13,20 +13,138 @@ function Devis({
   lectureSeule = false,
 }) {
   const [clientId, setClientId] = useState("");
-  const [montant, setMontant] = useState("");
+  const [lignes, setLignes] = useState([]);
+  const [montantAncienDevis, setMontantAncienDevis] = useState(0);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [devisEnCours, setDevisEnCours] = useState(null);
+  const [rechercheProduit, setRechercheProduit] = useState("");
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("tous");
-
   const [pageActuelle, setPageActuelle] = useState(1);
+
   const devisParPage = 5;
+
+  const totalLignes = lignes.reduce(
+    (total, ligne) =>
+      total + Number(ligne.quantite || 0) * Number(ligne.prixUnitaire || 0),
+    0
+  );
+
+  const montantDevis = lignes.length > 0 ? totalLignes : montantAncienDevis;
+
+  const produitsFiltres = useMemo(() => {
+    const terme = rechercheProduit.trim().toLowerCase();
+
+    if (!terme) return produits;
+
+    return produits.filter((produit) =>
+      [
+        produit.nom,
+        produit.reference,
+        produit.marque,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(terme)
+    );
+  }, [produits, rechercheProduit]);
+
+  function formaterMontant(montant) {
+    return `${Number(montant || 0).toLocaleString("fr-FR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} DH`;
+  }
+
+  function calculerTotalLigne(ligne) {
+    return (
+      Number(ligne.quantite || 0) * Number(ligne.prixUnitaire || 0)
+    );
+  }
 
   function reinitialiserFormulaire() {
     setClientId("");
-    setMontant("");
+    setLignes([]);
+    setMontantAncienDevis(0);
     setDate(new Date().toISOString().slice(0, 10));
     setDevisEnCours(null);
+    setRechercheProduit("");
+  }
+
+  function ajouterProduitAuDevis(produit) {
+    if (lectureSeule) return;
+
+    setLignes((anciennesLignes) => {
+      const ligneExistante = anciennesLignes.find(
+        (ligne) => ligne.produitId === produit.id
+      );
+
+      if (ligneExistante) {
+        return anciennesLignes.map((ligne) =>
+          ligne.produitId === produit.id
+            ? {
+                ...ligne,
+                quantite: Number(ligne.quantite) + 1,
+              }
+            : ligne
+        );
+      }
+
+      return [
+        ...anciennesLignes,
+        {
+          id: `${produit.id}-${Date.now()}`,
+          produitId: produit.id,
+          nom: produit.nom,
+          reference: produit.reference,
+          marque: produit.marque,
+          processeur: produit.processeur,
+          ram: produit.ram,
+          stockage: produit.stockage,
+          carteGraphique: produit.carteGraphique,
+          tailleEcran: produit.tailleEcran,
+          prixCatalogue: Number(produit.prixVente),
+          prixUnitaire: Number(produit.prixVente),
+          quantite: 1,
+        },
+      ];
+    });
+  }
+
+  function modifierLigne(id, champ, valeur) {
+    setLignes((anciennesLignes) =>
+      anciennesLignes.map((ligne) => {
+        if (ligne.id !== id) return ligne;
+
+        if (champ === "quantite") {
+          return {
+            ...ligne,
+            quantite: valeur,
+          };
+        }
+
+        return {
+          ...ligne,
+          prixUnitaire: valeur,
+        };
+      })
+    );
+  }
+
+  function supprimerLigne(id) {
+    setLignes((anciennesLignes) =>
+      anciennesLignes.filter((ligne) => ligne.id !== id)
+    );
+  }
+
+  function lignesSontValides() {
+    return lignes.every(
+      (ligne) =>
+        Number.isInteger(Number(ligne.quantite)) &&
+        Number(ligne.quantite) > 0 &&
+        Number.isFinite(Number(ligne.prixUnitaire)) &&
+        Number(ligne.prixUnitaire) > 0
+    );
   }
 
   function gererAjout(e) {
@@ -34,15 +152,33 @@ function Devis({
 
     if (lectureSeule) return;
 
-    if (!clientId || Number(montant) <= 0 || !date) {
-      alert("Sélectionnez un client, un montant valide et une date.");
+    if (!clientId || !date) {
+      alert("Sélectionnez un client et une date.");
+      return;
+    }
+
+    if (lignes.length === 0 && !devisEnCours) {
+      alert("Ajoutez au moins un laptop au devis.");
+      return;
+    }
+
+    if (lignes.length > 0 && !lignesSontValides()) {
+      alert(
+        "Chaque ligne doit contenir une quantité entière positive et un prix unitaire positif."
+      );
       return;
     }
 
     const donnees = {
       clientId: Number(clientId),
-      montant: Number(montant),
+      montant: Number(montantDevis),
       date,
+      lignes: lignes.map((ligne) => ({
+        ...ligne,
+        quantite: Number(ligne.quantite),
+        prixCatalogue: Number(ligne.prixCatalogue),
+        prixUnitaire: Number(ligne.prixUnitaire),
+      })),
     };
 
     if (devisEnCours) {
@@ -62,7 +198,7 @@ function Devis({
   }
 
   function nomClient(id) {
-    const client = clients.find((c) => c.id === id);
+    const client = clients.find((item) => item.id === id);
     return client ? client.nom : "Client inconnu";
   }
 
@@ -76,8 +212,22 @@ function Devis({
 
     setDevisEnCours(item);
     setClientId(String(item.clientId));
-    setMontant(String(item.montant));
     setDate(item.date);
+    setMontantAncienDevis(Number(item.montant || 0));
+
+    setLignes(
+      (item.lignes || []).map((ligne, index) => ({
+        ...ligne,
+        id:
+          ligne.id ||
+          `${ligne.produitId || "produit"}-${item.id}-${index}`,
+        quantite: Number(ligne.quantite || 1),
+        prixCatalogue: Number(
+          ligne.prixCatalogue ?? ligne.prixUnitaire ?? 0
+        ),
+        prixUnitaire: Number(ligne.prixUnitaire || 0),
+      }))
+    );
   }
 
   function gererSuppression(item) {
@@ -146,18 +296,17 @@ function Devis({
   const devisFiltres = devis.filter((item) => {
     const terme = recherche.trim().toLowerCase();
 
-    const numero = String(item.numero || "").toLowerCase();
-    const nom = nomClient(item.clientId).toLowerCase();
-    const dateDevis = String(item.date || "").toLowerCase();
-
-    const correspondRecherche =
-      numero.includes(terme) ||
-      nom.includes(terme) ||
-      dateDevis.includes(terme);
+    const correspondRecherche = [
+      item.numero,
+      nomClient(item.clientId),
+      item.date,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(terme);
 
     const correspondStatut =
-      filtreStatut === "tous" ||
-      item.statut === filtreStatut;
+      filtreStatut === "tous" || item.statut === filtreStatut;
 
     return correspondRecherche && correspondStatut;
   });
@@ -176,18 +325,53 @@ function Devis({
     indiceDebut + devisParPage
   );
 
-  function changerRecherche(e) {
-    setRecherche(e.target.value);
-    setPageActuelle(1);
-  }
-
-  function changerFiltre(e) {
-    setFiltreStatut(e.target.value);
-    setPageActuelle(1);
-  }
-
   function exporterDevisPDF(item) {
     const client = clients.find((c) => c.id === item.clientId);
+    const lignesDevis = item.lignes || [];
+
+    const sectionsProduits =
+      lignesDevis.length > 0
+        ? lignesDevis.map((ligne, index) => ({
+            titre: `Laptop ${index + 1} — ${ligne.nom}`,
+            champs: [
+              { label: "Référence", valeur: ligne.reference },
+              { label: "Marque", valeur: ligne.marque },
+              {
+                label: "Spécifications",
+                valeur: [
+                  ligne.processeur,
+                  ligne.ram,
+                  ligne.stockage,
+                  ligne.carteGraphique,
+                  ligne.tailleEcran,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              },
+              { label: "Prix catalogue", valeur: formaterMontant(ligne.prixCatalogue) },
+              { label: "Quantité", valeur: ligne.quantite },
+              {
+                label: "Prix unitaire négocié",
+                valeur: formaterMontant(ligne.prixUnitaire),
+              },
+              {
+                label: "Total de la ligne",
+                valeur: formaterMontant(calculerTotalLigne(ligne)),
+              },
+            ],
+          }))
+        : [
+            {
+              titre: "Produits",
+              champs: [
+                {
+                  label: "Information",
+                  valeur:
+                    "Ce devis historique ne contient pas de détail produit.",
+                },
+              ],
+            },
+          ];
 
     exporterDocumentPDF({
       titre: "Devis",
@@ -203,7 +387,7 @@ function Devis({
             { label: "Statut", valeur: item.statut || "En attente" },
             {
               label: "Montant total",
-              valeur: `${Number(item.montant || 0).toLocaleString("fr-FR")} DH`,
+              valeur: formaterMontant(item.montant),
             },
           ],
         },
@@ -212,9 +396,13 @@ function Devis({
           champs: [
             { label: "Nom", valeur: client?.nom || "Client inconnu" },
             { label: "Email", valeur: client?.email || "Non renseigné" },
-            { label: "Téléphone", valeur: client?.telephone || "Non renseigné" },
+            {
+              label: "Téléphone",
+              valeur: client?.telephone || "Non renseigné",
+            },
           ],
         },
+        ...sectionsProduits,
       ],
     });
   }
@@ -245,7 +433,9 @@ function Devis({
             <p>Ajoutez d'abord un client dans la page Clients.</p>
           ) : (
             <form onSubmit={gererAjout} className="formulaire">
+              <label htmlFor="devis-client">Client</label>
               <select
+                id="devis-client"
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 required
@@ -259,22 +449,188 @@ function Devis({
                 ))}
               </select>
 
+              <label htmlFor="devis-date">Date</label>
               <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                placeholder="Montant en DH"
-                value={montant}
-                onChange={(e) => setMontant(e.target.value)}
-                required
-              />
-
-              <input
+                id="devis-date"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
               />
+
+              <h3>Ajouter un laptop au devis</h3>
+
+              {produits.length === 0 ? (
+                <p className="sous-titre">
+                  Aucun laptop n'est disponible dans le catalogue.
+                </p>
+              ) : (
+                <>
+                  <div className="recherche-container">
+                    <input
+                      type="search"
+                      value={rechercheProduit}
+                      onChange={(e) =>
+                        setRechercheProduit(e.target.value)
+                      }
+                      placeholder="Rechercher par nom, référence ou marque..."
+                    />
+
+                    {rechercheProduit && (
+                      <button
+                        type="button"
+                        className="bouton petit"
+                        onClick={() => setRechercheProduit("")}
+                      >
+                        Effacer
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="table-responsive">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Référence</th>
+                          <th>Laptop</th>
+                          <th>Marque</th>
+                          <th>Prix catalogue</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {produitsFiltres.map((produit) => (
+                          <tr key={produit.id}>
+                            <td>{produit.reference}</td>
+                            <td>{produit.nom}</td>
+                            <td>{produit.marque}</td>
+                            <td>{formaterMontant(produit.prixVente)}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="bouton petit"
+                                onClick={() =>
+                                  ajouterProduitAuDevis(produit)
+                                }
+                              >
+                                Ajouter
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {produitsFiltres.length === 0 && (
+                          <tr>
+                            <td colSpan="5">
+                              Aucun laptop ne correspond à la recherche.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              <h3>Laptops sélectionnés</h3>
+
+              {lignes.length === 0 ? (
+                <p className="sous-titre">
+                  Aucun laptop sélectionné.
+                </p>
+              ) : (
+                <div className="table-responsive">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Laptop</th>
+                        <th>Spécifications</th>
+                        <th>Prix catalogue</th>
+                        <th>Quantité</th>
+                        <th>Prix négocié</th>
+                        <th>Total</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {lignes.map((ligne) => (
+                        <tr key={ligne.id}>
+                          <td>
+                            <strong>{ligne.nom}</strong>
+                            <br />
+                            <small>{ligne.reference} · {ligne.marque}</small>
+                          </td>
+                          <td>
+                            {ligne.processeur}
+                            <br />
+                            {ligne.ram} · {ligne.stockage}
+                            <br />
+                            {ligne.carteGraphique} · {ligne.tailleEcran}
+                          </td>
+                          <td>{formaterMontant(ligne.prixCatalogue)}</td>
+                          <td>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={ligne.quantite}
+                              onChange={(e) =>
+                                modifierLigne(
+                                  ligne.id,
+                                  "quantite",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={ligne.prixUnitaire}
+                              onChange={(e) =>
+                                modifierLigne(
+                                  ligne.id,
+                                  "prixUnitaire",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </td>
+                          <td>
+                            <strong>
+                              {formaterMontant(calculerTotalLigne(ligne))}
+                            </strong>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="bouton petit bouton-danger"
+                              onClick={() => supprimerLigne(ligne.id)}
+                            >
+                              Retirer
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {devisEnCours && lignes.length === 0 && (
+                <p className="message-info">
+                  Ce devis historique ne possède pas encore de lignes produit.
+                  Son montant actuel est conservé tant qu'aucun laptop n'est ajouté.
+                </p>
+              )}
+
+              <p>
+                <strong>Sous-total : {formaterMontant(montantDevis)}</strong>
+              </p>
 
               <button type="submit" className="bouton">
                 {devisEnCours
@@ -304,7 +660,10 @@ function Devis({
             type="text"
             placeholder="Rechercher par numéro, client ou date..."
             value={recherche}
-            onChange={changerRecherche}
+            onChange={(e) => {
+              setRecherche(e.target.value);
+              setPageActuelle(1);
+            }}
           />
 
           {recherche && (
@@ -329,7 +688,10 @@ function Devis({
           <select
             id="filtreStatutDevis"
             value={filtreStatut}
-            onChange={changerFiltre}
+            onChange={(e) => {
+              setFiltreStatut(e.target.value);
+              setPageActuelle(1);
+            }}
           >
             <option value="tous">Tous les statuts</option>
             <option value="En attente">En attente</option>
@@ -349,6 +711,7 @@ function Devis({
               <tr>
                 <th>Numéro</th>
                 <th>Client</th>
+                <th>Produits</th>
                 <th>Montant</th>
                 <th>Date</th>
                 <th>Statut</th>
@@ -361,97 +724,99 @@ function Devis({
                 <tr key={item.id}>
                   <td>{item.numero}</td>
                   <td>{nomClient(item.clientId)}</td>
-                  <td>{item.montant} DH</td>
+                  <td>
+                    {item.lignes?.length
+                      ? `${item.lignes.length} modèle(s)`
+                      : "Non détaillé"}
+                  </td>
+                  <td>{formaterMontant(item.montant)}</td>
                   <td>{item.date}</td>
                   <td>{afficherStatut(item)}</td>
-
-
-            <td>
-              <div className="actions-facture">
-                <button
-                  type="button"
-                  className="bouton petit bouton-pdf"
-                  onClick={() => exporterDevisPDF(item)}
-                >
-                  PDF
-                </button>
-
-                {!lectureSeule && (
-                  <>
-                    {item.statut === "En attente" && (
-                      <>
-                        <button
-                          type="button"
-                          className="bouton petit"
-                          onClick={() => commencerModification(item)}
-                        >
-                          Modifier
-                        </button>
-
-                        <button
-                          type="button"
-                          className="bouton petit bouton-danger"
-                          onClick={() => gererSuppression(item)}
-                        >
-                          Supprimer
-                        </button>
-
-                        <button
-                          type="button"
-                          className="bouton petit"
-                          onClick={() => simulerEnvoi(item.id)}
-                        >
-                          Simuler l'envoi
-                        </button>
-                      </>
-                    )}
-
-                    {item.statut === "Envoyé" && (
-                      <>
-                        <button
-                          type="button"
-                          className="bouton petit"
-                          onClick={() => accepterDevis(item.id)}
-                        >
-                          Accepter
-                        </button>
-
-                        <button
-                          type="button"
-                          className="bouton petit bouton-danger"
-                          onClick={() => gererSuppression(item)}
-                        >
-                          Supprimer
-                        </button>
-                      </>
-                    )}
-
-                    {item.statut === "Accepté" && !item.factureId && (
+                  <td>
+                    <div className="actions-facture">
                       <button
                         type="button"
-                        className="bouton petit"
-                        onClick={() => convertirDevis(item.id)}
+                        className="bouton petit bouton-pdf"
+                        onClick={() => exporterDevisPDF(item)}
                       >
-                        Convertir en facture
+                        PDF
                       </button>
-                    )}
 
-                    {item.statut === "Converti" && (
-                      <span className="badge payee">
-                        Facture créée
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
-            </td>
+                      {!lectureSeule && (
+                        <>
+                          {item.statut === "En attente" && (
+                            <>
+                              <button
+                                type="button"
+                                className="bouton petit"
+                                onClick={() => commencerModification(item)}
+                              >
+                                Modifier
+                              </button>
 
+                              <button
+                                type="button"
+                                className="bouton petit bouton-danger"
+                                onClick={() => gererSuppression(item)}
+                              >
+                                Supprimer
+                              </button>
+
+                              <button
+                                type="button"
+                                className="bouton petit"
+                                onClick={() => simulerEnvoi(item.id)}
+                              >
+                                Simuler l'envoi
+                              </button>
+                            </>
+                          )}
+
+                          {item.statut === "Envoyé" && (
+                            <>
+                              <button
+                                type="button"
+                                className="bouton petit"
+                                onClick={() => accepterDevis(item.id)}
+                              >
+                                Accepter
+                              </button>
+
+                              <button
+                                type="button"
+                                className="bouton petit bouton-danger"
+                                onClick={() => gererSuppression(item)}
+                              >
+                                Supprimer
+                              </button>
+                            </>
+                          )}
+
+                          {item.statut === "Accepté" && !item.factureId && (
+                            <button
+                              type="button"
+                              className="bouton petit"
+                              onClick={() => convertirDevis(item.id)}
+                            >
+                              Convertir en facture
+                            </button>
+                          )}
+
+                          {item.statut === "Converti" && (
+                            <span className="badge payee">
+                              Facture créée
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
 
               {devisFiltres.length === 0 && (
                 <tr>
-                  <td colSpan="6">
+                  <td colSpan="7">
                     {devis.length === 0
                       ? "Aucun devis disponible."
                       : "Aucun devis ne correspond à votre recherche ou à votre filtre."}
@@ -463,17 +828,7 @@ function Devis({
         </div>
 
         {nombrePages > 1 && (
-          <div
-            className="pagination"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "20px",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="pagination">
             <button
               type="button"
               className="bouton petit"

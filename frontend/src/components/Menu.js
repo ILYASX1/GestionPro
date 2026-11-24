@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import Notifications from "./Notifications";
 
 const navigation = [
   { id: "Accueil", nom: "Tableau de bord", icon: "dashboard" },
   { id: "Clients", nom: "Clients", icon: "users" },
+  { id: "Produits", nom: "Produits", icon: "laptop" },
   { id: "Devis", nom: "Devis", icon: "document" },
   { id: "Factures", nom: "Factures", icon: "invoice" },
   { id: "Paiements", nom: "Paiements", icon: "wallet" },
@@ -38,6 +38,13 @@ function Icon({ name, size = 20 }) {
         <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
         <circle cx="10" cy="7" r="4" />
         <path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    laptop: (
+      <>
+        <rect x="4" y="4" width="16" height="11" rx="1.5" />
+        <path d="M2 19h20" />
+        <path d="M9 19l1-2h4l1 2" />
       </>
     ),
     document: (
@@ -220,7 +227,6 @@ function Menu({
         )}
 
         <div className="menu-bas">
-
           <button
             type="button"
             className="menu-profil bouton-profil"
@@ -248,7 +254,6 @@ function Menu({
               </div>
             )}
           </button>
-
 
           <div className="notifications-container">
             <button

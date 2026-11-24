@@ -11,15 +11,18 @@ import {
   facturesInitiales,
   devisInitiaux,
   paiementsInitiaux,
+  produitsInitiaux,
 } from "./data/data";
 
 import Accueil from "./pages/Accueil";
 import Clients from "./pages/Clients";
+import Produits from "./pages/Produits";
 import Factures from "./pages/Factures";
 import Devis from "./pages/Devis";
 import Paiements from "./pages/Paiements";
 import Relances from "./pages/Relances";
 import Administrateurs from "./pages/Administrateurs";
+
 
 import "./App.css";
 
@@ -30,7 +33,7 @@ function App() {
   const [factures, setFactures] = useState(facturesInitiales);
   const [devis, setDevis] = useState(devisInitiaux);
   const [paiements, setPaiements] = useState(paiementsInitiaux);
-
+  const [produits, setProduits] = useState(produitsInitiaux);
   const [pageAuth, setPageAuth] = useState("Connexion");
   const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
 
@@ -663,6 +666,68 @@ function App() {
     );
   }
 
+    // GESTION DES PRODUITS
+
+  function ajouterProduit(produit) {
+    if (!estSuperAdministrateur) {
+      alert("Seul le Super administrateur peut ajouter des produits.");
+      return;
+    }
+
+    setProduits((anciensProduits) => [
+      ...anciensProduits,
+      {
+        id: Date.now(),
+        ...produit,
+      },
+    ]);
+  }
+
+  function modifierProduit(id, donnees) {
+    if (!estSuperAdministrateur) {
+      alert("Seul le Super administrateur peut modifier les produits.");
+      return;
+    }
+
+    const produitExiste = produits.some((produit) => produit.id === id);
+
+    if (!produitExiste) {
+      alert("Produit introuvable.");
+      return;
+    }
+
+    setProduits((anciensProduits) =>
+      anciensProduits.map((produit) =>
+        produit.id === id
+          ? {
+              ...produit,
+              ...donnees,
+            }
+          : produit
+      )
+    );
+  }
+
+  function supprimerProduit(id) {
+    if (!estSuperAdministrateur) {
+      alert("Seul le Super administrateur peut supprimer les produits.");
+      return;
+    }
+
+    const produitExiste = produits.some((produit) => produit.id === id);
+
+    if (!produitExiste) {
+      alert("Produit introuvable.");
+      return;
+    }
+
+    setProduits((anciensProduits) =>
+      anciensProduits.filter((produit) => produit.id !== id)
+    );
+
+    alert("Produit supprimé avec succès.");
+  }
+
   // VÉRIFICATION DES DROITS COMMERCIAUX
 
   function autoriserModificationClient(clientId) {
@@ -1101,6 +1166,17 @@ function App() {
           />
         );
 
+              case "Produits":
+        return (
+          <Produits
+            produits={produits}
+            utilisateur={utilisateurConnecte}
+            ajouterProduit={ajouterProduit}
+            modifierProduit={modifierProduit}
+            supprimerProduit={supprimerProduit}
+          />
+        );
+        
       case "Devis":
         return (
           <Devis

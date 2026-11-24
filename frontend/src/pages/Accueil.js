@@ -1,11 +1,10 @@
-
 function Icone({ type }) {
   const paths = {
     clients: (
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
         <circle cx="10" cy="7" r="4" />
-        <path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+        <path d="M20 21v-2a4 4 0 0 1 0 7.75" />
       </>
     ),
     factures: (
@@ -75,8 +74,6 @@ function Icone({ type }) {
 }
 
 function Accueil({ clients, factures, devis, paiements }) {
-  // FONCTIONS UTILITAIRES
-
   function convertirEnNombre(valeur) {
     const nombre = Number(valeur);
     return Number.isFinite(nombre) ? nombre : 0;
@@ -90,34 +87,10 @@ function Accueil({ clients, factures, devis, paiements }) {
     }
 
     const valeur = String(date).trim();
-    let resultat;
-
-    const dateFrancaise = valeur.match(
-      /^(\d{2})\/(\d{2})\/(\d{4})$/
-    );
-
-    if (dateFrancaise) {
-      resultat = new Date(
-        Number(dateFrancaise[3]),
-        Number(dateFrancaise[2]) - 1,
-        Number(dateFrancaise[1])
-      );
-
-      if (
-        resultat.getFullYear() !== Number(dateFrancaise[3]) ||
-        resultat.getMonth() !== Number(dateFrancaise[2]) - 1 ||
-        resultat.getDate() !== Number(dateFrancaise[1])
-      ) {
-        return null;
-      }
-
-      return resultat;
-    }
-
     const dateISO = valeur.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
     if (dateISO) {
-      resultat = new Date(
+      const resultat = new Date(
         Number(dateISO[1]),
         Number(dateISO[2]) - 1,
         Number(dateISO[3])
@@ -134,7 +107,29 @@ function Accueil({ clients, factures, devis, paiements }) {
       return resultat;
     }
 
-    resultat = new Date(valeur);
+    const dateFrancaise = valeur.match(
+      /^(\d{2})\/(\d{2})\/(\d{4})$/
+    );
+
+    if (dateFrancaise) {
+      const resultat = new Date(
+        Number(dateFrancaise[3]),
+        Number(dateFrancaise[2]) - 1,
+        Number(dateFrancaise[1])
+      );
+
+      if (
+        resultat.getFullYear() !== Number(dateFrancaise[3]) ||
+        resultat.getMonth() !== Number(dateFrancaise[2]) - 1 ||
+        resultat.getDate() !== Number(dateFrancaise[1])
+      ) {
+        return null;
+      }
+
+      return resultat;
+    }
+
+    const resultat = new Date(valeur);
 
     return Number.isNaN(resultat.getTime()) ? null : resultat;
   }
@@ -146,31 +141,35 @@ function Accueil({ clients, factures, devis, paiements }) {
     })} DH`;
   }
 
-  // CALCUL DES MONTANTS
+  function factureAnnulee(facture) {
+    return ["Annulée", "Annulee", "Cancelled", "Canceled"].includes(
+      facture.statut
+    );
+  }
 
-  const montantTotalFactures = factures.reduce(
-    (total, facture) =>
-      total + Math.max(0, convertirEnNombre(facture.montant)),
-    0
+  const facturesEligibles = factures.filter(
+    (facture) => !factureAnnulee(facture)
   );
 
-  const chiffreAffaires = paiements.reduce(
-    (total, paiement) =>
-      total + Math.max(0, convertirEnNombre(paiement.montant)),
-    0
+  const idsFacturesEligibles = new Set(
+    facturesEligibles.map((facture) => String(facture.id))
   );
 
-  // CALCUL DES STATUTS DES FACTURES
+  const paiementsValides = paiements.filter(
+    (paiement) =>
+      idsFacturesEligibles.has(String(paiement.factureId)) &&
+      convertirEnNombre(paiement.montant) > 0
+  );
 
-  const facturesAvecPaiements = factures.map((facture) => {
-    const totalPaye = paiements
+  const facturesAvecPaiements = facturesEligibles.map((facture) => {
+    const totalPaye = paiementsValides
       .filter(
         (paiement) =>
           String(paiement.factureId) === String(facture.id)
       )
       .reduce(
         (total, paiement) =>
-          total + Math.max(0, convertirEnNombre(paiement.montant)),
+          total + convertirEnNombre(paiement.montant),
         0
       );
 
@@ -194,24 +193,28 @@ function Accueil({ clients, factures, devis, paiements }) {
 
     return {
       ...facture,
+      montantFacture,
       totalPaye,
       montantRestant,
       statutCalcule,
     };
   });
 
+  const montantTotalFactures = facturesAvecPaiements.reduce(
+    (total, facture) => total + facture.montantFacture,
+    0
+  );
+
+  const chiffreAffaires = paiementsValides.reduce(
+    (total, paiement) =>
+      total + convertirEnNombre(paiement.montant),
+    0
+  );
+
   const montantImpaye = facturesAvecPaiements.reduce(
     (total, facture) => total + facture.montantRestant,
     0
   );
-
-  const tauxPaiement =
-    montantTotalFactures > 0
-      ? Math.min(
-          100,
-          (chiffreAffaires / montantTotalFactures) * 100
-        )
-      : 0;
 
   const nombreFacturesPayees = facturesAvecPaiements.filter(
     (facture) => facture.statutCalcule === "Payée"
@@ -227,7 +230,13 @@ function Accueil({ clients, factures, devis, paiements }) {
     (facture) => facture.statutCalcule === "En attente"
   ).length;
 
-  // FACTURES EN RETARD
+  const tauxPaiement =
+    montantTotalFactures > 0
+      ? Math.min(
+          100,
+          (chiffreAffaires / montantTotalFactures) * 100
+        )
+      : 0;
 
   const aujourdHui = new Date();
   aujourdHui.setHours(0, 0, 0, 0);
@@ -248,8 +257,6 @@ function Accueil({ clients, factures, devis, paiements }) {
     }
   );
 
-  // STATISTIQUES PRINCIPALES
-
   const statistiques = [
     {
       titre: "Clients",
@@ -260,10 +267,10 @@ function Accueil({ clients, factures, devis, paiements }) {
     },
     {
       titre: "Factures",
-      valeur: factures.length,
+      valeur: facturesEligibles.length,
       icone: "factures",
       couleur: "blue",
-      description: "Factures créées",
+      description: "Factures éligibles",
     },
     {
       titre: "Devis",
@@ -283,9 +290,14 @@ function Accueil({ clients, factures, devis, paiements }) {
     },
   ];
 
-  // INDICATEURS FINANCIERS
-
   const indicateurs = [
+    {
+      titre: "Montant total facturé",
+      valeur: formaterMontant(montantTotalFactures),
+      icone: "factures",
+      couleur: "blue",
+      description: "Factures non annulées",
+    },
     {
       titre: "Chiffre d'affaires encaissé",
       valeur: formaterMontant(chiffreAffaires),
@@ -316,10 +328,8 @@ function Accueil({ clients, factures, devis, paiements }) {
     },
   ];
 
-  // RÉPARTITION DES FACTURES
-
-  const totalFacturesPourRepartition = Math.max(
-    factures.length,
+    const totalFacturesPourRepartition = Math.max(
+    facturesAvecPaiements.length,
     1
   );
 
@@ -345,11 +355,10 @@ function Accueil({ clients, factures, devis, paiements }) {
       nombre: nombreFacturesEnAttente,
       couleur: "red",
       pourcentage:
-        (nombreFacturesEnAttente / totalFacturesPourRepartition) * 100,
+        (nombreFacturesEnAttente / totalFacturesPourRepartition) *
+        100,
     },
   ];
-
-  // ÉVOLUTION DES PAIEMENTS SUR LES 6 DERNIERS MOIS
 
   const moisLabels = [
     "Janvier",
@@ -368,7 +377,7 @@ function Accueil({ clients, factures, devis, paiements }) {
 
   const sixDerniersMois = [];
 
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 5; i >= 0; i -= 1) {
     const date = new Date();
     date.setDate(1);
     date.setMonth(date.getMonth() - i);
@@ -381,7 +390,7 @@ function Accueil({ clients, factures, devis, paiements }) {
     });
   }
 
-  paiements.forEach((paiement) => {
+  paiementsValides.forEach((paiement) => {
     const datePaiement = lireDate(paiement.date);
 
     if (!datePaiement) return;
@@ -393,9 +402,8 @@ function Accueil({ clients, factures, devis, paiements }) {
     );
 
     if (moisCorrespondant) {
-      moisCorrespondant.montant += Math.max(
-        0,
-        convertirEnNombre(paiement.montant)
+      moisCorrespondant.montant += convertirEnNombre(
+        paiement.montant
       );
     }
   });
@@ -404,8 +412,6 @@ function Accueil({ clients, factures, devis, paiements }) {
     ...sixDerniersMois.map((item) => item.montant),
     1
   );
-
-  // COORDONNÉES DU GRAPHIQUE LINÉAIRE
 
   const graphiquePoints = sixDerniersMois.map((item, index) => ({
     x: 42 + index * 127.2,
@@ -433,12 +439,12 @@ function Accueil({ clients, factures, devis, paiements }) {
   );
 
   const airePaiements =
-    `${courbePaiements} L ${graphiquePoints[graphiquePoints.length - 1].x} 198 ` +
+    `${courbePaiements} L ${
+      graphiquePoints[graphiquePoints.length - 1].x
+    } 198 ` +
     `L ${graphiquePoints[0].x} 198 Z`;
 
-  // LES CINQ DERNIÈRES FACTURES
-
-  const dernieresFactures = [...factures]
+  const dernieresFactures = [...facturesAvecPaiements]
     .sort((a, b) => {
       const dateA = lireDate(a.date);
       const dateB = lireDate(b.date);
@@ -446,8 +452,6 @@ function Accueil({ clients, factures, devis, paiements }) {
       return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
     })
     .slice(0, 5);
-
-  // AFFICHAGE
 
   return (
     <section className="dashboard">
@@ -473,8 +477,6 @@ function Accueil({ clients, factures, devis, paiements }) {
           </strong>
         </div>
       </div>
-
-      {/* APERÇU GÉNÉRAL */}
 
       <div className="dashboard-section-entete">
         <div>
@@ -506,8 +508,6 @@ function Accueil({ clients, factures, devis, paiements }) {
           </article>
         ))}
       </div>
-
-      {/* INDICATEURS FINANCIERS */}
 
       <div className="dashboard-section-entete dashboard-section-finance">
         <div>
@@ -541,16 +541,14 @@ function Accueil({ clients, factures, devis, paiements }) {
         ))}
       </div>
 
-      {/* RÉPARTITION DES FACTURES */}
-
       <div className="dashboard-panel">
         <div className="dashboard-panel-entete">
           <div>
             <h2>Répartition des factures</h2>
-            <p>État actuel de vos factures.</p>
+            <p>État réel des paiements des factures éligibles.</p>
           </div>
           <span className="dashboard-total-badge">
-            {factures.length} facture(s)
+            {facturesAvecPaiements.length} facture(s)
           </span>
         </div>
 
@@ -577,9 +575,7 @@ function Accueil({ clients, factures, devis, paiements }) {
         </div>
       </div>
 
-      {/* ÉVOLUTION DES PAIEMENTS */}
-
-      <div className="dashboard-panel">
+            <div className="dashboard-panel">
         <div className="dashboard-panel-entete">
           <div>
             <h2>Évolution des paiements</h2>
@@ -607,8 +603,16 @@ function Accueil({ clients, factures, devis, paiements }) {
                 x2="0"
                 y2="1"
               >
-                <stop offset="0%" stopColor="#536FE8" stopOpacity="0.30" />
-                <stop offset="100%" stopColor="#536FE8" stopOpacity="0.015" />
+                <stop
+                  offset="0%"
+                  stopColor="#536FE8"
+                  stopOpacity="0.30"
+                />
+                <stop
+                  offset="100%"
+                  stopColor="#536FE8"
+                  stopOpacity="0.015"
+                />
               </linearGradient>
             </defs>
 
@@ -623,7 +627,10 @@ function Accueil({ clients, factures, devis, paiements }) {
               />
             ))}
 
-            <path d={airePaiements} fill="url(#paiementsAreaGradient)" />
+            <path
+              d={airePaiements}
+              fill="url(#paiementsAreaGradient)"
+            />
 
             <path
               d={courbePaiements}
@@ -653,7 +660,9 @@ function Accueil({ clients, factures, devis, paiements }) {
                   {formaterMontant(point.montant)}
                 </text>
                 <title>
-                  {`${point.label} ${point.annee} : ${formaterMontant(point.montant)}`}
+                  {`${point.label} ${point.annee} : ${formaterMontant(
+                    point.montant
+                  )}`}
                 </title>
               </g>
             ))}
@@ -669,8 +678,6 @@ function Accueil({ clients, factures, devis, paiements }) {
         </div>
       </div>
 
-      {/* DERNIÈRES FACTURES */}
-
       <div className="dashboard-panel dashboard-panel-factures">
         <div className="dashboard-panel-entete">
           <div>
@@ -679,7 +686,7 @@ function Accueil({ clients, factures, devis, paiements }) {
           </div>
 
           <span className="dashboard-total-badge">
-            {factures.length} au total
+            {facturesAvecPaiements.length} au total
           </span>
         </div>
 
@@ -689,6 +696,8 @@ function Accueil({ clients, factures, devis, paiements }) {
               <tr>
                 <th>Numéro</th>
                 <th>Montant</th>
+                <th>Déjà payé</th>
+                <th>Reste dû</th>
                 <th>Date</th>
                 <th>Statut</th>
               </tr>
@@ -696,18 +705,13 @@ function Accueil({ clients, factures, devis, paiements }) {
 
             <tbody>
               {dernieresFactures.map((facture) => {
-                const factureCalculee = facturesAvecPaiements.find(
-                  (item) => String(item.id) === String(facture.id)
-                );
-
-                const statut =
-                  factureCalculee?.statutCalcule || facture.statut;
-
                 let classeStatut = "badge attente";
 
-                if (statut === "Payée") {
+                if (facture.statutCalcule === "Payée") {
                   classeStatut = "badge payee";
-                } else if (statut === "Partiellement payée") {
+                } else if (
+                  facture.statutCalcule === "Partiellement payée"
+                ) {
                   classeStatut = "badge partielle";
                 }
 
@@ -718,20 +722,22 @@ function Accueil({ clients, factures, devis, paiements }) {
                         {facture.numero}
                       </strong>
                     </td>
-                    <td>{formaterMontant(facture.montant)}</td>
+                    <td>{formaterMontant(facture.montantFacture)}</td>
+                    <td>{formaterMontant(facture.totalPaye)}</td>
+                    <td>{formaterMontant(facture.montantRestant)}</td>
                     <td>{facture.date}</td>
                     <td>
                       <span className={classeStatut}>
-                        {statut}
+                        {facture.statutCalcule}
                       </span>
                     </td>
                   </tr>
                 );
               })}
 
-              {factures.length === 0 && (
+              {dernieresFactures.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="dashboard-vide">
+                  <td colSpan="6" className="dashboard-vide">
                     Aucune facture disponible pour le moment.
                   </td>
                 </tr>

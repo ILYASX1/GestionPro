@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { exporterDocumentPDF } from "../utils/exportPdf";
 
@@ -18,25 +17,63 @@ function Paiements({
   const [paiementEnCours, setPaiementEnCours] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [filtreMode, setFiltreMode] = useState("tous");
-
   const [pageActuelle, setPageActuelle] = useState(1);
+
   const paiementsParPage = 5;
+
+  function formaterMontant(valeur) {
+    return `${Number(valeur || 0).toLocaleString("fr-FR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} DH`;
+  }
 
   function totalPaye(factureId, paiementIgnoreId = null) {
     return paiements
       .filter(
-        (p) =>
-          p.factureId === factureId &&
-          p.id !== paiementIgnoreId
+        (paiement) =>
+          paiement.factureId === factureId &&
+          paiement.id !== paiementIgnoreId
       )
-      .reduce((total, p) => total + Number(p.montant), 0);
+      .reduce(
+        (total, paiement) => total + Number(paiement.montant || 0),
+        0
+      );
   }
 
-  function montantRestant(facture) {
+  function montantRestant(facture, paiementIgnoreId = null) {
+    if (!facture) return 0;
+
     return Math.max(
       0,
-      Number(facture.montant) - totalPaye(facture.id)
+      Number(facture.montant || 0) -
+        totalPaye(facture.id, paiementIgnoreId)
     );
+  }
+
+  function informationsClient(facture) {
+    if (facture?.clientSnapshot) {
+      return {
+        nom: facture.clientSnapshot.nom || "Client inconnu",
+        email: facture.clientSnapshot.email || "Non renseigné",
+        telephone:
+          facture.clientSnapshot.telephone || "Non renseigné",
+      };
+    }
+
+    const client = clients.find(
+      (item) => item.id === facture?.clientId
+    );
+
+    return {
+      nom: client?.nom || "Client inconnu",
+      email: client?.email || "Non renseigné",
+      telephone: client?.telephone || "Non renseigné",
+    };
+  }
+
+  function nomClient(facture) {
+    return informationsClient(facture).nom;
   }
 
   const facturesEnAttente = factures.filter(
@@ -44,17 +81,25 @@ function Paiements({
   );
 
   const factureSelectionnee = paiementEnCours
-    ? factures.find((f) => f.id === paiementEnCours.factureId)
-    : factures.find((f) => f.id === Number(factureId));
+    ? factures.find(
+        (facture) => facture.id === paiementEnCours.factureId
+      )
+    : factures.find(
+        (facture) => facture.id === Number(factureId)
+      );
+
+  const totalDejaPaye = factureSelectionnee
+    ? totalPaye(
+        factureSelectionnee.id,
+        paiementEnCours?.id || null
+      )
+    : 0;
 
   const montantMaximum = factureSelectionnee
-    ? paiementEnCours
-      ? Math.max(
-          0,
-          Number(factureSelectionnee.montant) -
-            totalPaye(factureSelectionnee.id, paiementEnCours.id)
-        )
-      : montantRestant(factureSelectionnee)
+    ? montantRestant(
+        factureSelectionnee,
+        paiementEnCours?.id || null
+      )
     : 0;
 
   function reinitialiserFormulaire() {
@@ -77,9 +122,16 @@ function Paiements({
       return;
     }
 
+    if (!factureSelectionnee) {
+      alert("Veuillez choisir une facture valide.");
+      return;
+    }
+
     if (montantSaisi > montantMaximum) {
       alert(
-        `Le montant dépasse le reste à payer. Montant maximum : ${montantMaximum} DH.`
+        `Le montant dépasse le reste à payer. Montant maximum : ${formaterMontant(
+          montantMaximum
+        )}.`
       );
       return;
     }
@@ -95,18 +147,9 @@ function Paiements({
       return;
     }
 
-    const facture = factures.find(
-      (f) => f.id === Number(factureId)
-    );
-
-    if (!facture) {
-      alert("Veuillez choisir une facture valide.");
-      return;
-    }
-
     ajouterPaiement({
       id: Date.now(),
-      factureId: facture.id,
+      factureId: factureSelectionnee.id,
       montant: montantSaisi,
       date,
       mode,
@@ -130,12 +173,12 @@ function Paiements({
     if (lectureSeule) return;
 
     const facture = factures.find(
-      (f) => f.id === paiement.factureId
+      (item) => item.id === paiement.factureId
     );
 
     const confirmation = window.confirm(
       `Voulez-vous vraiment supprimer le paiement de ${
-        facture ? facture.numero : "cette facture"
+        facture?.numero || "cette facture"
       } ?`
     );
 
@@ -148,24 +191,19 @@ function Paiements({
     }
   }
 
-  function nomClient(id) {
-    const client = clients.find((c) => c.id === id);
-    return client ? client.nom : "Client inconnu";
-  }
-
   function exporterPaiementPDF(paiement) {
-    const facture = factures.find((f) => f.id === paiement.factureId);
+    const facture = factures.find(
+      (item) => item.id === paiement.factureId
+    );
 
-    const client = facture
-      ? clients.find((c) => c.id === facture.clientId)
-      : null;
+    const client = informationsClient(facture);
 
     const totalVerse = facture
       ? totalPaye(facture.id)
       : Number(paiement.montant || 0);
 
     const reste = facture
-      ? Math.max(0, Number(facture.montant || 0) - totalVerse)
+      ? montantRestant(facture)
       : null;
 
     exporterDocumentPDF({
@@ -187,7 +225,7 @@ function Paiements({
             },
             {
               label: "Montant reçu",
-              valeur: `${Number(paiement.montant || 0).toLocaleString("fr-FR")} DH`,
+              valeur: formaterMontant(paiement.montant),
             },
             {
               label: "Mode de paiement",
@@ -205,32 +243,25 @@ function Paiements({
             {
               label: "Montant de la facture",
               valeur: facture
-                ? `${Number(facture.montant || 0).toLocaleString("fr-FR")} DH`
+                ? formaterMontant(facture.montant)
                 : "—",
             },
             {
               label: "Total payé sur la facture",
-              valeur: facture
-                ? `${totalVerse.toLocaleString("fr-FR")} DH`
-                : "—",
+              valeur: facture ? formaterMontant(totalVerse) : "—",
             },
             {
               label: "Reste à payer",
-              valeur: reste === null
-                ? "—"
-                : `${reste.toLocaleString("fr-FR")} DH`,
+              valeur: reste === null ? "—" : formaterMontant(reste),
             },
           ],
         },
         {
           titre: "Informations du client",
           champs: [
-            { label: "Nom", valeur: client?.nom || "Client inconnu" },
-            { label: "Email", valeur: client?.email || "Non renseigné" },
-            {
-              label: "Téléphone",
-              valeur: client?.telephone || "Non renseigné",
-            },
+            { label: "Nom", valeur: client.nom },
+            { label: "Email", valeur: client.email },
+            { label: "Téléphone", valeur: client.telephone },
           ],
         },
       ],
@@ -241,31 +272,22 @@ function Paiements({
     const terme = recherche.trim().toLowerCase();
 
     const facture = factures.find(
-      (f) => f.id === paiement.factureId
+      (item) => item.id === paiement.factureId
     );
 
-    const numeroFacture = facture
-      ? String(facture.numero || "").toLowerCase()
-      : "";
-
-    const client = facture
-      ? nomClient(facture.clientId).toLowerCase()
-      : "";
-
-    const datePaiement = String(paiement.date || "").toLowerCase();
-    const modePaiement = String(paiement.mode || "").toLowerCase();
-    const montantPaiement = String(paiement.montant || "").toLowerCase();
-
-    const correspondRecherche =
-      numeroFacture.includes(terme) ||
-      client.includes(terme) ||
-      datePaiement.includes(terme) ||
-      modePaiement.includes(terme) ||
-      montantPaiement.includes(terme);
+    const correspondRecherche = [
+      facture?.numero,
+      nomClient(facture),
+      paiement.date,
+      paiement.mode,
+      paiement.montant,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(terme);
 
     const correspondMode =
-      filtreMode === "tous" ||
-      paiement.mode === filtreMode;
+      filtreMode === "tous" || paiement.mode === filtreMode;
 
     return correspondRecherche && correspondMode;
   });
@@ -280,23 +302,11 @@ function Paiements({
   );
 
   const indiceDebut = (pageValide - 1) * paiementsParPage;
-  const indiceFin = indiceDebut + paiementsParPage;
 
   const paiementsAffiches = paiementsFiltres.slice(
     indiceDebut,
-    indiceFin
+    indiceDebut + paiementsParPage
   );
-
-  function changerRecherche(e) {
-    setRecherche(e.target.value);
-    setPageActuelle(1);
-  }
-
-  function changerFiltre(e) {
-    setFiltreMode(e.target.value);
-    setPageActuelle(1);
-  }
-
   return (
     <section>
       <h1>Gestion des paiements</h1>
@@ -307,7 +317,11 @@ function Paiements({
           : "Enregistrez, modifiez et consultez les paiements de vos clients."}
       </p>
 
-
+      {lectureSeule && (
+        <p className="message-info">
+          Mode consultation : vous ne pouvez pas modifier les paiements.
+        </p>
+      )}
 
       {!lectureSeule && (
         <div className="carte">
@@ -327,46 +341,93 @@ function Paiements({
                   <p>
                     {factureSelectionnee
                       ? `${factureSelectionnee.numero} — ${nomClient(
-                          factureSelectionnee.clientId
+                          factureSelectionnee
                         )}`
                       : "Facture introuvable"}
                   </p>
                 </div>
               ) : (
-                <select
-                  value={factureId}
-                  onChange={(e) => {
-                    setFactureId(e.target.value);
+                <>
+                  <label htmlFor="paiement-facture">
+                    Facture associée
+                  </label>
 
-                    const facture = factures.find(
-                      (f) => f.id === Number(e.target.value)
-                    );
+                  <select
+                    id="paiement-facture"
+                    value={factureId}
+                    onChange={(e) => {
+                      setFactureId(e.target.value);
 
-                    setMontant(
-                      facture ? String(montantRestant(facture)) : ""
-                    );
-                  }}
-                  required
-                >
-                  <option value="">Choisir une facture</option>
+                      const facture = factures.find(
+                        (item) => item.id === Number(e.target.value)
+                      );
 
-                  {facturesEnAttente.map((facture) => (
-                    <option key={facture.id} value={facture.id}>
-                      {facture.numero} — {nomClient(facture.clientId)} —{" "}
-                      Reste : {montantRestant(facture)} DH
-                    </option>
-                  ))}
-                </select>
+                      setMontant(
+                        facture
+                          ? String(montantRestant(facture))
+                          : ""
+                      );
+                    }}
+                    required
+                  >
+                    <option value="">Choisir une facture</option>
+
+                    {facturesEnAttente.map((facture) => (
+                      <option key={facture.id} value={facture.id}>
+                        {facture.numero} — {nomClient(facture)} — Reste :{" "}
+                        {formaterMontant(montantRestant(facture))}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
 
               {factureSelectionnee && (
-                <p>
-                  Montant restant à payer :{" "}
-                  <strong>{montantMaximum} DH</strong>
-                </p>
+                <div className="carte">
+                  <h3>Situation de la facture</h3>
+
+                  <p>
+                    <strong>Facture :</strong>{" "}
+                    {factureSelectionnee.numero}
+                  </p>
+
+                  <p>
+                    <strong>Client :</strong>{" "}
+                    {nomClient(factureSelectionnee)}
+                  </p>
+
+                  <p>
+                    <strong>Montant total :</strong>{" "}
+                    {formaterMontant(factureSelectionnee.montant)}
+                  </p>
+
+                  <p>
+                    <strong>Montant déjà payé :</strong>{" "}
+                    {formaterMontant(totalDejaPaye)}
+                  </p>
+
+                  <p>
+                    <strong>Reste à payer :</strong>{" "}
+                    {formaterMontant(montantMaximum)}
+                  </p>
+
+                  <p>
+                    <strong>Statut :</strong>{" "}
+                    {montantMaximum === 0
+                      ? "Payée"
+                      : totalDejaPaye > 0
+                        ? "Partiellement payée"
+                        : "En attente"}
+                  </p>
+                </div>
               )}
 
+              <label htmlFor="paiement-montant">
+                Montant du paiement (DH)
+              </label>
+
               <input
+                id="paiement-montant"
                 type="number"
                 min="0.01"
                 max={montantMaximum}
@@ -377,14 +438,20 @@ function Paiements({
                 required
               />
 
+              <label htmlFor="paiement-date">Date du paiement</label>
+
               <input
+                id="paiement-date"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
               />
 
+              <label htmlFor="paiement-mode">Mode de paiement</label>
+
               <select
+                id="paiement-mode"
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
                 required
@@ -422,10 +489,13 @@ function Paiements({
 
         <div className="recherche-container">
           <input
-            type="text"
+            type="search"
             placeholder="Rechercher par facture, client, date, mode ou montant..."
             value={recherche}
-            onChange={changerRecherche}
+            onChange={(e) => {
+              setRecherche(e.target.value);
+              setPageActuelle(1);
+            }}
           />
 
           {recherche && (
@@ -450,7 +520,10 @@ function Paiements({
           <select
             id="filtreMode"
             value={filtreMode}
-            onChange={changerFiltre}
+            onChange={(e) => {
+              setFiltreMode(e.target.value);
+              setPageActuelle(1);
+            }}
           >
             <option value="tous">Tous les modes</option>
             <option value="Espèces">Espèces</option>
@@ -480,24 +553,16 @@ function Paiements({
             <tbody>
               {paiementsAffiches.map((paiement) => {
                 const facture = factures.find(
-                  (f) => f.id === paiement.factureId
+                  (item) => item.id === paiement.factureId
                 );
 
                 return (
                   <tr key={paiement.id}>
-                    <td>{facture ? facture.numero : "Inconnue"}</td>
-
-                    <td>
-                      {facture
-                        ? nomClient(facture.clientId)
-                        : "Inconnu"}
-                    </td>
-
-                    <td>{paiement.montant} DH</td>
+                    <td>{facture?.numero || "Inconnue"}</td>
+                    <td>{nomClient(facture)}</td>
+                    <td>{formaterMontant(paiement.montant)}</td>
                     <td>{paiement.date}</td>
                     <td>{paiement.mode}</td>
-
-
                     <td>
                       <div className="actions-facture">
                         <button
@@ -513,7 +578,9 @@ function Paiements({
                             <button
                               type="button"
                               className="bouton petit"
-                              onClick={() => commencerModification(paiement)}
+                              onClick={() =>
+                                commencerModification(paiement)
+                              }
                             >
                               Modifier
                             </button>
@@ -521,17 +588,16 @@ function Paiements({
                             <button
                               type="button"
                               className="bouton petit bouton-danger"
-                              onClick={() => gererSuppression(paiement)}
+                              onClick={() =>
+                                gererSuppression(paiement)
+                              }
                             >
                               Supprimer
                             </button>
                           </>
                         )}
-
-
                       </div>
                     </td>
-
                   </tr>
                 );
               })}
@@ -548,19 +614,8 @@ function Paiements({
             </tbody>
           </table>
         </div>
-
         {nombrePages > 1 && (
-          <div
-            className="pagination"
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "20px",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="pagination">
             <button
               type="button"
               className="bouton petit"

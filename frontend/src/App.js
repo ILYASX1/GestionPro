@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 
 import Menu from "./components/Menu";
@@ -23,7 +22,6 @@ import Paiements from "./pages/Paiements";
 import Relances from "./pages/Relances";
 import Administrateurs from "./pages/Administrateurs";
 
-
 import "./App.css";
 
 function App() {
@@ -34,6 +32,7 @@ function App() {
   const [devis, setDevis] = useState(devisInitiaux);
   const [paiements, setPaiements] = useState(paiementsInitiaux);
   const [produits, setProduits] = useState(produitsInitiaux);
+
   const [pageAuth, setPageAuth] = useState("Connexion");
   const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
 
@@ -240,8 +239,6 @@ function App() {
     );
   });
 
-  // NOTIFICATIONS VISIBLES SELON LE RÔLE
-
   const notificationsVisibles = notifications.filter(
     (notification) =>
       estSuperAdministrateur ||
@@ -252,7 +249,7 @@ function App() {
     (notification) => !notification.lue
   ).length;
 
-  // AUTHENTIFICATION
+    // AUTHENTIFICATION
 
   function inscrire(nouveauCompte) {
     if (superAdministrateurExiste) {
@@ -436,14 +433,11 @@ function App() {
     }
 
     setComptes((anciensComptes) =>
-      anciensComptes.filter(
-        (compte) => compte.id !== id
-      )
+      anciensComptes.filter((compte) => compte.id !== id)
     );
 
     alert("Le compte administrateur a été supprimé.");
   }
-
 
   // MODIFICATION DU COMPTE PERSONNEL
 
@@ -522,8 +516,7 @@ function App() {
     return true;
   }
 
-
-  // GESTION DES CLIENTS
+    // GESTION DES CLIENTS
 
   function ajouterClient(client) {
     if (!estSuperAdministrateur) {
@@ -666,7 +659,7 @@ function App() {
     );
   }
 
-    // GESTION DES PRODUITS
+  // GESTION DES PRODUITS
 
   function ajouterProduit(produit) {
     if (!estSuperAdministrateur) {
@@ -769,7 +762,7 @@ function App() {
     );
   }
 
-  // CONVERSION D'UN DEVIS EN FACTURE
+    // CONVERSION D'UN DEVIS EN FACTURE
   // Échéance automatique fixée à 30 jours.
 
   function convertirDevisEnFacture(id) {
@@ -793,7 +786,15 @@ function App() {
       return;
     }
 
-    // Date locale de création au format YYYY-MM-DD.
+    const client = clients.find(
+      (item) => item.id === devisSelectionne.clientId
+    );
+
+    if (!client) {
+      alert("Le client associé à ce devis est introuvable.");
+      return;
+    }
+
     const aujourdHui = new Date();
 
     const formaterDate = (date) =>
@@ -805,21 +806,47 @@ function App() {
 
     const dateActuelle = formaterDate(aujourdHui);
 
-    // Échéance par défaut : 30 jours après la création.
     const dateEcheance = new Date(aujourdHui);
     dateEcheance.setDate(dateEcheance.getDate() + 30);
 
     const nouvelId = Date.now();
 
+    const lignesFacture = (devisSelectionne.lignes || []).map(
+      (ligne, index) => ({
+        id:
+          ligne.id ||
+          `${ligne.produitId || "produit"}-${nouvelId}-${index}`,
+        produitId: ligne.produitId ?? null,
+        nom: ligne.nom || "",
+        reference: ligne.reference || "",
+        marque: ligne.marque || "",
+        processeur: ligne.processeur || "",
+        ram: ligne.ram || "",
+        stockage: ligne.stockage || "",
+        carteGraphique: ligne.carteGraphique || "",
+        tailleEcran: ligne.tailleEcran || "",
+        prixCatalogue: Number(ligne.prixCatalogue || 0),
+        prixUnitaire: Number(ligne.prixUnitaire || 0),
+        quantite: Number(ligne.quantite || 0),
+      })
+    );
+
     const nouvelleFacture = {
       id: nouvelId,
       numero: `FAC-${nouvelId.toString().slice(-6)}`,
       clientId: devisSelectionne.clientId,
-      montant: devisSelectionne.montant,
+      clientSnapshot: {
+        nom: client.nom || "",
+        email: client.email || "",
+        telephone: client.telephone || "",
+      },
+      devisId: devisSelectionne.id,
+      devisNumero: devisSelectionne.numero || "",
+      lignes: lignesFacture,
+      montant: Number(devisSelectionne.montant || 0),
       date: dateActuelle,
       dateEcheance: formaterDate(dateEcheance),
       statut: "En attente",
-      devisId: devisSelectionne.id,
     };
 
     setFactures((anciennesFactures) => [
@@ -973,7 +1000,7 @@ function App() {
     );
   }
 
-  // GESTION DES PAIEMENTS
+    // GESTION DES PAIEMENTS
 
   function actualiserStatutFacture(factureId, listePaiements) {
     const facture = factures.find(
@@ -1139,7 +1166,7 @@ function App() {
     );
   }
 
-  // AFFICHAGE DES PAGES
+    // AFFICHAGE DES PAGES
 
   function afficherPage() {
     switch (pageActive) {
@@ -1166,7 +1193,7 @@ function App() {
           />
         );
 
-              case "Produits":
+      case "Produits":
         return (
           <Produits
             produits={produits}
@@ -1176,7 +1203,7 @@ function App() {
             supprimerProduit={supprimerProduit}
           />
         );
-        
+
       case "Devis":
         return (
           <Devis
@@ -1287,7 +1314,7 @@ function App() {
     );
   }
 
-  // APPLICATION PRINCIPALE
+    // APPLICATION PRINCIPALE
 
   return (
     <div className="application">

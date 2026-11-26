@@ -15,7 +15,7 @@ function Administrateurs({
     useState(null);
 
   const administrateurs = comptes.filter(
-    (compte) => compte.role === "admin"
+    (compte) => compte.role === "gestionnaire"
   );
 
   function reinitialiserFormulaire() {
@@ -77,7 +77,7 @@ function Administrateurs({
 
   function gererSuppression(administrateur) {
     const nombreClients = clients.filter(
-      (client) => client.adminId === administrateur.id
+      (client) => client.gestionnaireId === administrateur.id
     ).length;
 
     if (nombreClients > 0) {
@@ -98,15 +98,15 @@ function Administrateurs({
 
   return (
     <section>
-      <h1>Gestion des administrateurs</h1>
+      <h1>Gestion des gestionnaires</h1>
 
       <p className="sous-titre">
-        Créez et gérez les comptes des administrateurs de votre entreprise.
+        Créez et gérez les comptes des gestionnaires de votre entreprise.
       </p>
 
       <div className="statistiques">
         <div className="carte-stat">
-          <p>Administrateurs enregistrés</p>
+          <p>Gestionnaires enregistrés</p>
           <h2>{administrateurs.length}</h2>
         </div>
       </div>
@@ -114,8 +114,8 @@ function Administrateurs({
       <div className="carte">
         <h2>
           {administrateurEnCours
-            ? "Modifier un administrateur"
-            : "Ajouter un administrateur"}
+            ? "Modifier un gestionnaire"
+            : "Ajouter un gestionnaire"}
         </h2>
 
         <form className="formulaire" onSubmit={gererSoumission}>
@@ -125,7 +125,7 @@ function Administrateurs({
             type="text"
             value={nom}
             onChange={(e) => setNom(e.target.value)}
-            placeholder="Nom de l'administrateur"
+            placeholder="Nom du gestionnaire"
             required
           />
 
@@ -179,10 +179,10 @@ function Administrateurs({
       </div>
 
       <div className="carte">
-        <h2>Liste des administrateurs</h2>
+        <h2>Liste des gestionnaires</h2>
 
         {administrateurs.length === 0 ? (
-          <p>Aucun administrateur n'a été créé.</p>
+          <p>Aucun gestionnaire n'a été créé.</p>
         ) : (
           <div className="table-responsive">
             <table>
@@ -199,7 +199,7 @@ function Administrateurs({
                 {administrateurs.map((administrateur) => {
                   const nombreClients = clients.filter(
                     (client) =>
-                      client.adminId === administrateur.id
+                      client.gestionnaireId === administrateur.id
                   ).length;
 
                   return (

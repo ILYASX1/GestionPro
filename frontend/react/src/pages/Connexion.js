@@ -66,7 +66,7 @@ function Connexion({ allerInscription, connecter, inscriptionDisponible }) {
               className="auth-lien"
               onClick={allerInscription}
             >
-              Créer le compte Super administrateur
+              Créer le compte Administrateur
             </button>
           </p>
         )}

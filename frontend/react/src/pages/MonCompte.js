@@ -59,9 +59,9 @@ function MonCompte({ utilisateur, modifierCompte, retour }) {
         </div>
 
         <div className="compte-role">
-          {utilisateur?.role === "super_admin"
-            ? "Super administrateur"
-            : "Administrateur"}
+          {utilisateur?.role === "administrateur"
+            ? "Administrateur"
+            : "Gestionnaire"}
         </div>
       </header>
 
@@ -170,9 +170,9 @@ function MonCompte({ utilisateur, modifierCompte, retour }) {
           <div className="compte-infos-ligne">
             <span>Rôle</span>
             <strong>
-              {utilisateur?.role === "super_admin"
-                ? "Super administrateur"
-                : "Administrateur"}
+              {utilisateur?.role === "administrateur"
+                ? "Administrateur"
+                : "Gestionnaire"}
             </strong>
           </div>
 

@@ -37,7 +37,7 @@ function Produits({
   const [recherche, setRecherche] = useState("");
   const [marqueFiltre, setMarqueFiltre] = useState("toutes");
 
-  const estSuperAdmin = utilisateur?.role === "super_admin";
+  const estSuperAdmin = utilisateur?.role === "administrateur";
 
   const marques = useMemo(
     () =>

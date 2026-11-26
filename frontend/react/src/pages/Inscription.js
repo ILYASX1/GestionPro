@@ -35,7 +35,7 @@ function Inscription({ allerConnexion, inscrire }) {
           <p>Initialisation du compte principal de GestionPro.</p>
         </div>
 
-        <h2>Créer le Super administrateur</h2>
+        <h2>Créer l'Administrateur</h2>
 
         <form className="formulaire" onSubmit={gererInscription}>
           <label htmlFor="nom">Nom complet</label>

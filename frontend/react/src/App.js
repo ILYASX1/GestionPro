@@ -24,6 +24,59 @@ import Administrateurs from "./pages/Administrateurs";
 
 import "./App.css";
 
+const CLE_COMPTES = "gestionpro_comptes";
+
+// MIGRATION DES RÔLES (anciens rôles -> nouveaux rôles)
+// super_admin -> administrateur
+// admin       -> gestionnaire
+// Les comptes ne sont ni supprimés ni dupliqués et toutes leurs
+// autres propriétés (id, nom, email, mot de passe...) sont conservées.
+function migrerComptes(comptesStockes) {
+  if (!Array.isArray(comptesStockes)) {
+    return [];
+  }
+
+  const comptesValides = comptesStockes.filter(
+    (compte) => compte && typeof compte === "object"
+  );
+
+  const aDejaUnAdministrateur = comptesValides.some(
+    (compte) =>
+      compte.role === "super_admin" ||
+      compte.role === "administrateur"
+  );
+
+  // Cas de sécurité : aucun compte de niveau supérieur n'existe
+  // (ancien rôle "admin" attribué au tout premier compte).
+  // Le premier compte "admin" devient alors l'administrateur,
+  // afin que l'application ne se retrouve jamais sans administrateur.
+  let indexPremierAdmin = -1;
+
+  if (!aDejaUnAdministrateur) {
+    indexPremierAdmin = comptesValides.findIndex(
+      (compte) => compte.role === "admin"
+    );
+  }
+
+  return comptesValides.map((compte, index) => {
+    if (compte.role === "super_admin") {
+      return { ...compte, role: "administrateur" };
+    }
+
+    if (compte.role === "admin") {
+      return {
+        ...compte,
+        role:
+          index === indexPremierAdmin
+            ? "administrateur"
+            : "gestionnaire",
+      };
+    }
+
+    return compte;
+  });
+}
+
 function App() {
   const [pageActive, setPageActive] = useState("Accueil");
 
@@ -38,9 +91,12 @@ function App() {
 
   const [comptes, setComptes] = useState(() => {
     try {
-      return JSON.parse(
-        localStorage.getItem("gestionpro_comptes") || "[]"
+      const comptesStockes = JSON.parse(
+        localStorage.getItem(CLE_COMPTES) || "[]"
       );
+
+      // Les comptes migrés sont sauvegardés par l'effet ci-dessous.
+      return migrerComptes(comptesStockes);
     } catch {
       return [];
     }
@@ -193,27 +249,27 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem(
-      "gestionpro_comptes",
+      CLE_COMPTES,
       JSON.stringify(comptes)
     );
   }, [comptes]);
 
-  const superAdministrateurExiste = comptes.some(
-    (compte) => compte.role === "super_admin"
+  const administrateurExiste = comptes.some(
+    (compte) => compte.role === "administrateur"
   );
 
-  const estSuperAdministrateur =
-    utilisateurConnecte?.role === "super_admin";
-
   const estAdministrateur =
-    utilisateurConnecte?.role === "admin";
+    utilisateurConnecte?.role === "administrateur";
+
+  const estGestionnaire =
+    utilisateurConnecte?.role === "gestionnaire";
 
   // DONNÉES VISIBLES SELON LE RÔLE
 
-  const clientsVisibles = estSuperAdministrateur
+  const clientsVisibles = estAdministrateur
     ? clients
     : clients.filter(
-        (client) => client.adminId === utilisateurConnecte?.id
+        (client) => client.gestionnaireId === utilisateurConnecte?.id
       );
 
   const idsClientsVisibles = clientsVisibles.map(
@@ -241,7 +297,7 @@ function App() {
 
   const notificationsVisibles = notifications.filter(
     (notification) =>
-      estSuperAdministrateur ||
+      estAdministrateur ||
       idsClientsVisibles.includes(notification.clientId)
   );
 
@@ -252,7 +308,7 @@ function App() {
     // AUTHENTIFICATION
 
   function inscrire(nouveauCompte) {
-    if (superAdministrateurExiste) {
+    if (administrateurExiste) {
       alert("La création du premier compte est déjà terminée.");
       setPageAuth("Connexion");
       return;
@@ -275,7 +331,7 @@ function App() {
       id: Date.now(),
       ...nouveauCompte,
       email: emailNormalise,
-      role: "super_admin",
+      role: "administrateur",
     };
 
     setComptes((anciensComptes) => [
@@ -284,7 +340,7 @@ function App() {
     ]);
 
     alert(
-      "Compte Super administrateur créé avec succès. Vous pouvez maintenant vous connecter."
+      "Compte Administrateur créé avec succès. Vous pouvez maintenant vous connecter."
     );
 
     setPageAuth("Connexion");
@@ -319,10 +375,10 @@ function App() {
     setPageActive("Accueil");
   }
 
-  // GESTION DES ADMINISTRATEURS
+  // GESTION DES GESTIONNAIRES
 
   function ajouterAdministrateur(nouveauCompte) {
-    if (!estSuperAdministrateur) {
+    if (!estAdministrateur) {
       alert("Accès non autorisé.");
       return;
     }
@@ -350,7 +406,7 @@ function App() {
       nom: nouveauCompte.nom.trim(),
       email: emailNormalise,
       motDePasse: nouveauCompte.motDePasse,
-      role: "admin",
+      role: "gestionnaire",
     };
 
     setComptes((anciensComptes) => [
@@ -358,21 +414,21 @@ function App() {
       nouvelAdministrateur,
     ]);
 
-    alert("Le compte administrateur a été créé avec succès.");
+    alert("Le compte gestionnaire a été créé avec succès.");
   }
 
   function modifierAdministrateur(id, donnees) {
-    if (!estSuperAdministrateur) {
+    if (!estAdministrateur) {
       alert("Accès non autorisé.");
       return;
     }
 
     const administrateur = comptes.find(
-      (compte) => compte.id === id && compte.role === "admin"
+      (compte) => compte.id === id && compte.role === "gestionnaire"
     );
 
     if (!administrateur) {
-      alert("Administrateur introuvable.");
+      alert("Gestionnaire introuvable.");
       return;
     }
 
@@ -393,7 +449,7 @@ function App() {
 
     setComptes((anciensComptes) =>
       anciensComptes.map((compte) =>
-        compte.id === id && compte.role === "admin"
+        compte.id === id && compte.role === "gestionnaire"
           ? {
               ...compte,
               ...donnees,
@@ -403,31 +459,31 @@ function App() {
       )
     );
 
-    alert("Les informations de l'administrateur ont été modifiées.");
+    alert("Les informations du gestionnaire ont été modifiées.");
   }
 
   function supprimerAdministrateur(id) {
-    if (!estSuperAdministrateur) {
+    if (!estAdministrateur) {
       alert("Accès non autorisé.");
       return;
     }
 
     const administrateur = comptes.find(
-      (compte) => compte.id === id && compte.role === "admin"
+      (compte) => compte.id === id && compte.role === "gestionnaire"
     );
 
     if (!administrateur) {
-      alert("Administrateur introuvable.");
+      alert("Gestionnaire introuvable.");
       return;
     }
 
     const nombreClients = clients.filter(
-      (client) => client.adminId === id
+      (client) => client.gestionnaireId === id
     ).length;
 
     if (nombreClients > 0) {
       alert(
-        "Impossible de supprimer cet administrateur : des clients lui sont attribués. Réattribuez d'abord ses clients."
+        "Impossible de supprimer ce gestionnaire : des clients lui sont attribués. Réattribuez d'abord ses clients."
       );
       return;
     }
@@ -436,7 +492,7 @@ function App() {
       anciensComptes.filter((compte) => compte.id !== id)
     );
 
-    alert("Le compte administrateur a été supprimé.");
+    alert("Le compte gestionnaire a été supprimé.");
   }
 
   // MODIFICATION DU COMPTE PERSONNEL
@@ -519,45 +575,58 @@ function App() {
     // GESTION DES CLIENTS
 
   function ajouterClient(client) {
-    if (!estSuperAdministrateur) {
-      alert("Seul le Super administrateur peut ajouter des clients.");
+    if (estAdministrateur) {
+      // L'Administrateur assigne le client à un Gestionnaire
+      const gestionnaire = comptes.find(
+        (compte) =>
+          compte.id === Number(client.gestionnaireId) &&
+          compte.role === "gestionnaire"
+      );
+
+      if (!gestionnaire) {
+        alert("Veuillez choisir un gestionnaire valide.");
+        return;
+      }
+
+      setClients((anciensClients) => [
+        ...anciensClients,
+        {
+          ...client,
+          gestionnaireId: gestionnaire.id,
+        },
+      ]);
       return;
     }
 
-    const nouvelAdministrateur = comptes.find(
-      (compte) =>
-        compte.id === Number(client.adminId) &&
-        compte.role === "admin"
-    );
-
-    if (!nouvelAdministrateur) {
-      alert("Veuillez choisir un administrateur valide.");
+    if (estGestionnaire) {
+      // Le Gestionnaire s'assigne automatiquement le nouveau client
+      setClients((anciensClients) => [
+        ...anciensClients,
+        {
+          ...client,
+          gestionnaireId: utilisateurConnecte.id,
+        },
+      ]);
       return;
     }
 
-    setClients((anciensClients) => [
-      ...anciensClients,
-      {
-        ...client,
-        adminId: nouvelAdministrateur.id,
-      },
-    ]);
+    alert("Accès non autorisé.");
   }
 
-  function attribuerClient(clientId, nouvelAdminId) {
-    if (!estSuperAdministrateur) {
+  function attribuerClient(clientId, nouvelGestionnaireId) {
+    if (!estAdministrateur) {
       alert("Accès non autorisé.");
       return;
     }
 
-    const adminExiste = comptes.some(
+    const gestionnaireExiste = comptes.some(
       (compte) =>
-        compte.id === Number(nouvelAdminId) &&
-        compte.role === "admin"
+        compte.id === Number(nouvelGestionnaireId) &&
+        compte.role === "gestionnaire"
     );
 
-    if (!adminExiste) {
-      alert("Administrateur introuvable.");
+    if (!gestionnaireExiste) {
+      alert("Gestionnaire introuvable.");
       return;
     }
 
@@ -573,7 +642,7 @@ function App() {
     setClients((anciensClients) =>
       anciensClients.map((client) =>
         client.id === clientId
-          ? { ...client, adminId: Number(nouvelAdminId) }
+          ? { ...client, gestionnaireId: Number(nouvelGestionnaireId) }
           : client
       )
     );
@@ -584,9 +653,9 @@ function App() {
   }
 
   function modifierClient(id, donnees) {
-    if (!estAdministrateur) {
+    if (!estGestionnaire) {
       alert(
-        "Seul un administrateur peut modifier les informations d'un client."
+        "Seul un gestionnaire peut modifier les informations d'un client."
       );
       return;
     }
@@ -594,7 +663,7 @@ function App() {
     const clientExiste = clients.some(
       (client) =>
         client.id === id &&
-        client.adminId === utilisateurConnecte.id
+        client.gestionnaireId === utilisateurConnecte.id
     );
 
     if (!clientExiste) {
@@ -608,7 +677,7 @@ function App() {
           ? {
               ...client,
               ...donnees,
-              adminId: client.adminId,
+              gestionnaireId: client.gestionnaireId,
             }
           : client
       )
@@ -616,8 +685,8 @@ function App() {
   }
 
   function supprimerClient(id) {
-    if (!estSuperAdministrateur) {
-      alert("Seul le Super administrateur peut supprimer un client.");
+    if (!estAdministrateur) {
+      alert("Seul l'Administrateur peut supprimer un client.");
       return;
     }
 
@@ -662,8 +731,8 @@ function App() {
   // GESTION DES PRODUITS
 
   function ajouterProduit(produit) {
-    if (!estSuperAdministrateur) {
-      alert("Seul le Super administrateur peut ajouter des produits.");
+    if (!estAdministrateur) {
+      alert("Seul l'Administrateur peut ajouter des produits.");
       return;
     }
 
@@ -677,8 +746,8 @@ function App() {
   }
 
   function modifierProduit(id, donnees) {
-    if (!estSuperAdministrateur) {
-      alert("Seul le Super administrateur peut modifier les produits.");
+    if (!estAdministrateur) {
+      alert("Seul l'Administrateur peut modifier les produits.");
       return;
     }
 
@@ -702,8 +771,8 @@ function App() {
   }
 
   function supprimerProduit(id) {
-    if (!estSuperAdministrateur) {
-      alert("Seul le Super administrateur peut supprimer les produits.");
+    if (!estAdministrateur) {
+      alert("Seul l'Administrateur peut supprimer les produits.");
       return;
     }
 
@@ -724,9 +793,9 @@ function App() {
   // VÉRIFICATION DES DROITS COMMERCIAUX
 
   function autoriserModificationClient(clientId) {
-    if (estSuperAdministrateur) {
+    if (estAdministrateur) {
       alert(
-        "Le Super administrateur peut consulter les dossiers, mais ne peut pas modifier les opérations commerciales."
+        "L'Administrateur peut consulter les dossiers, mais ne peut pas modifier les opérations commerciales."
       );
       return false;
     }
@@ -734,7 +803,7 @@ function App() {
     const clientAutorise = clients.some(
       (client) =>
         client.id === clientId &&
-        client.adminId === utilisateurConnecte?.id
+        client.gestionnaireId === utilisateurConnecte?.id
     );
 
     if (!clientAutorise) {
@@ -1192,7 +1261,6 @@ function App() {
             attribuerClient={attribuerClient}
           />
         );
-
       case "Produits":
         return (
           <Produits
@@ -1215,7 +1283,7 @@ function App() {
             modifierDevis={modifierDevis}
             supprimerDevis={supprimerDevis}
             convertirDevisEnFacture={convertirDevisEnFacture}
-            lectureSeule={estSuperAdministrateur}
+            lectureSeule={estAdministrateur}
           />
         );
 
@@ -1227,7 +1295,7 @@ function App() {
             ajouterFacture={ajouterFacture}
             modifierFacture={modifierFacture}
             supprimerFacture={supprimerFacture}
-            lectureSeule={estSuperAdministrateur}
+            lectureSeule={estAdministrateur}
           />
         );
 
@@ -1240,7 +1308,7 @@ function App() {
             ajouterPaiement={ajouterPaiement}
             modifierPaiement={modifierPaiement}
             supprimerPaiement={supprimerPaiement}
-            lectureSeule={estSuperAdministrateur}
+            lectureSeule={estAdministrateur}
           />
         );
 
@@ -1250,12 +1318,12 @@ function App() {
             factures={facturesVisibles}
             clients={clientsVisibles}
             paiements={paiementsVisibles}
-            lectureSeule={estSuperAdministrateur}
+            lectureSeule={estAdministrateur}
           />
         );
 
       case "Administrateurs":
-        if (!estSuperAdministrateur) {
+        if (!estAdministrateur) {
           return <h1>Accès non autorisé</h1>;
         }
 
@@ -1285,7 +1353,7 @@ function App() {
 
   // CONNEXION ET INSCRIPTION
 
-  if (!utilisateurConnecte) {
+    if (!utilisateurConnecte) {
     return (
       <div className="application">
         <main className="contenu">
@@ -1295,7 +1363,7 @@ function App() {
               allerInscription={() =>
                 setPageAuth("Inscription")
               }
-              inscriptionDisponible={!superAdministrateurExiste}
+              inscriptionDisponible={!administrateurExiste}
             />
           ) : (
             <Inscription

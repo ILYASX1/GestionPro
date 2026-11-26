@@ -114,10 +114,10 @@ function Menu({
 
   const pages = [...navigation];
 
-  if (utilisateur?.role === "super_admin") {
+  if (utilisateur?.role === "administrateur") {
     pages.push({
       id: "Administrateurs",
-      nom: "Administrateurs",
+      nom: "Gestionnaires",
       icon: "shield",
     });
   }
@@ -199,12 +199,11 @@ function Menu({
             ))}
         </nav>
 
-        {utilisateur?.role === "super_admin" && (
+        {utilisateur?.role === "administrateur" && (
           <>
             <div className="menu-section-titre administration-titre">
               {!menuReduit && "ADMINISTRATION"}
             </div>
-
             <nav className="menu-liens">
               {pages
                 .filter((page) => page.id === "Administrateurs")
@@ -247,9 +246,9 @@ function Menu({
                   {utilisateur?.nom}
                 </span>
                 <small>
-                  {utilisateur?.role === "super_admin"
-                    ? "Super administrateur"
-                    : "Administrateur"}
+                  {utilisateur?.role === "administrateur"
+                    ? "Administrateur"
+                    : "Gestionnaire"}
                 </small>
               </div>
             )}

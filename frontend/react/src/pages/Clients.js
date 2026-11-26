@@ -13,24 +13,25 @@ function Clients({
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
-  const [adminId, setAdminId] = useState("");
+  const [gestionnaireId, setGestionnaireId] = useState("");
   const [clientEnCours, setClientEnCours] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [filtreTelephone, setFiltreTelephone] = useState("tous");
   const [pageActuelle, setPageActuelle] = useState(1);
 
   const clientsParPage = 5;
-  const estSuperAdmin = utilisateur?.role === "super_admin";
+  const estAdmin = utilisateur?.role === "administrateur";
+  const estGestionnaire = utilisateur?.role === "gestionnaire";
 
-  const administrateurs = comptes.filter(
-    (compte) => compte.role === "admin"
+  const gestionnaires = comptes.filter(
+    (compte) => compte.role === "gestionnaire"
   );
 
   function reinitialiserFormulaire() {
     setNom("");
     setEmail("");
     setTelephone("");
-    setAdminId("");
+    setGestionnaireId("");
     setClientEnCours(null);
   }
 
@@ -42,8 +43,8 @@ function Clients({
       return;
     }
 
-    if (estSuperAdmin && !adminId) {
-      alert("Veuillez attribuer ce client à un administrateur.");
+    if (estAdmin && !gestionnaireId) {
+      alert("Veuillez attribuer ce client à un gestionnaire.");
       return;
     }
 
@@ -62,12 +63,12 @@ function Clients({
       nom: nom.trim(),
       email: email.trim(),
       telephone: telephone.trim(),
-      adminId: Number(adminId),
+      gestionnaireId: estAdmin ? Number(gestionnaireId) : undefined,
     });
 
     reinitialiserFormulaire();
     setPageActuelle(1);
-    alert("Client ajouté et attribué avec succès.");
+    alert("Client ajouté avec succès.");
   }
 
   function commencerModification(client) {
@@ -106,19 +107,19 @@ function Clients({
     alert("Client modifié avec succès.");
   }
 
-  function gererAttribution(client, nouvelAdminId) {
-    if (!nouvelAdminId) {
-      alert("Veuillez sélectionner un administrateur.");
+  function gererAttribution(client, nouvelGestionnaireId) {
+    if (!nouvelGestionnaireId) {
+      alert("Veuillez sélectionner un gestionnaire.");
       return;
     }
 
     const confirmation = window.confirm(
-      "Voulez-vous transférer ce client à cet administrateur ? Il récupérera tout son historique."
+      "Voulez-vous transférer ce client à ce gestionnaire ? Il récupérera tout son historique."
     );
 
     if (!confirmation) return;
 
-    attribuerClient(client.id, Number(nouvelAdminId));
+    attribuerClient(client.id, Number(nouvelGestionnaireId));
   }
 
   const clientsFiltres = clients.filter((client) => {
@@ -170,12 +171,13 @@ function Clients({
       <h1>Gestion des clients</h1>
 
       <p className="sous-titre">
-        {estSuperAdmin
-          ? "Ajoutez les clients et attribuez-les aux administrateurs."
+        {estAdmin
+          ? "Ajoutez des clients et attribuez-les aux gestionnaires."
           : "Consultez et gérez les clients qui vous sont attribués."}
       </p>
 
-      {estSuperAdmin && (
+      {/* Formulaire d'ajout pour l'Administrateur */}
+      {estAdmin && (
         <div className="carte">
           <h2>Ajouter un client</h2>
 
@@ -203,20 +205,20 @@ function Clients({
               onChange={(e) => setTelephone(e.target.value)}
             />
 
-            <label htmlFor="admin-responsable">
-              Administrateur responsable
+            <label htmlFor="gestionnaire-responsable">
+              Gestionnaire responsable
             </label>
 
             <select
-              id="admin-responsable"
-              value={adminId}
-              onChange={(e) => setAdminId(e.target.value)}
+              id="gestionnaire-responsable"
+              value={gestionnaireId}
+              onChange={(e) => setGestionnaireId(e.target.value)}
               required
             >
-              <option value="">Choisir un administrateur</option>
-              {administrateurs.map((admin) => (
-                <option key={admin.id} value={admin.id}>
-                  {admin.nom}
+              <option value="">Choisir un gestionnaire</option>
+              {gestionnaires.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nom}
                 </option>
               ))}
             </select>
@@ -224,24 +226,25 @@ function Clients({
             <button
               type="submit"
               className="bouton"
-              disabled={administrateurs.length === 0}
+              disabled={gestionnaires.length === 0}
             >
               Ajouter et attribuer le client
             </button>
 
-            {administrateurs.length === 0 && (
+            {gestionnaires.length === 0 && (
               <p className="sous-titre">
-                Créez d'abord un compte administrateur.
+                Créez d'abord un compte gestionnaire.
               </p>
             )}
           </form>
         </div>
       )}
 
-      {!estSuperAdmin && (
+      {/* Formulaire d'ajout pour le Gestionnaire */}
+      {estGestionnaire && (
         <div className="carte">
           <h2>
-            {clientEnCours ? "Modifier un client" : "Informations du client"}
+            {clientEnCours ? "Modifier un client" : "Ajouter un client"}
           </h2>
 
           {clientEnCours ? (
@@ -282,9 +285,34 @@ function Clients({
               </button>
             </form>
           ) : (
-            <p className="sous-titre">
-              Sélectionnez « Modifier » dans la liste des clients pour modifier leurs informations.
-            </p>
+            <form onSubmit={gererAjout} className="formulaire">
+              <input
+                type="text"
+                placeholder="Nom complet"
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                required
+              />
+
+              <input
+                type="email"
+                placeholder="Adresse email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+
+              <input
+                type="tel"
+                placeholder="Téléphone"
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+              />
+
+              <button type="submit" className="bouton">
+                Ajouter le client
+              </button>
+            </form>
           )}
         </div>
       )}
@@ -341,15 +369,15 @@ function Clients({
                 <th>Nom</th>
                 <th>Email</th>
                 <th>Téléphone</th>
-                {estSuperAdmin && <th>Administrateur</th>}
+                {estAdmin && <th>Gestionnaire</th>}
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {clientsAffiches.map((client) => {
-                const responsable = administrateurs.find(
-                  (admin) => admin.id === client.adminId
+                const responsable = gestionnaires.find(
+                  (g) => g.id === client.gestionnaireId
                 );
 
                 return (
@@ -358,18 +386,18 @@ function Clients({
                     <td>{client.email}</td>
                     <td>{client.telephone || "Non renseigné"}</td>
 
-                    {estSuperAdmin && (
+                    {estAdmin && (
                       <td>
                         <select
-                          value={client.adminId || ""}
+                          value={client.gestionnaireId || ""}
                           onChange={(e) =>
                             gererAttribution(client, e.target.value)
                           }
                         >
                           <option value="">Non attribué</option>
-                          {administrateurs.map((admin) => (
-                            <option key={admin.id} value={admin.id}>
-                              {admin.nom}
+                          {gestionnaires.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.nom}
                             </option>
                           ))}
                         </select>
@@ -381,7 +409,7 @@ function Clients({
 
                     <td>
                       <div className="actions-facture">
-                        {!estSuperAdmin && (
+                        {estGestionnaire && (
                           <button
                             type="button"
                             className="bouton petit"
@@ -391,7 +419,7 @@ function Clients({
                           </button>
                         )}
 
-                        {estSuperAdmin && (
+                        {estAdmin && (
                           <button
                             type="button"
                             className="bouton petit bouton-danger"
@@ -408,7 +436,7 @@ function Clients({
 
               {clientsFiltres.length === 0 && (
                 <tr>
-                  <td colSpan={estSuperAdmin ? 5 : 4}>
+                  <td colSpan={estAdmin ? 5 : 4}>
                     Aucun client ne correspond à votre recherche.
                   </td>
                 </tr>

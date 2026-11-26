@@ -1,0 +1,10 @@
+
+{
+  "short_name": "GestionPro",
+  "name": "GestionPro - Laptop Sales Management",
+  "icons": [],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff"
+}

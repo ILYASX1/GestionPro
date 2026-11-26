@@ -13,6 +13,8 @@ function Administrateurs({
   const [motDePasse, setMotDePasse] = useState("");
   const [administrateurEnCours, setAdministrateurEnCours] =
     useState(null);
+  const [suppressionEnCours, setSuppressionEnCours] = useState(null);
+  const [destinationId, setDestinationId] = useState("");
 
   const administrateurs = comptes.filter(
     (compte) => compte.role === "gestionnaire"
@@ -75,15 +77,30 @@ function Administrateurs({
     setMotDePasse("");
   }
 
-  function gererSuppression(administrateur) {
-    const nombreClients = clients.filter(
-      (client) => client.gestionnaireId === administrateur.id
+  function compterClients(gestionnaire) {
+    return clients.filter(
+      (client) => client.gestionnaireId === gestionnaire.id
     ).length;
+  }
+
+  function gererSuppression(administrateur) {
+    const nombreClients = compterClients(administrateur);
 
     if (nombreClients > 0) {
-      alert(
-        `Impossible de supprimer ce compte : ${nombreClients} client(s) lui sont attribués. Réattribuez d'abord ces clients.`
+      const autresGestionnaires = administrateurs.filter(
+        (item) => item.id !== administrateur.id
       );
+
+      if (autresGestionnaires.length === 0) {
+        alert(
+          "Impossible de supprimer ce gestionnaire : des clients lui sont attribués et aucun autre gestionnaire n'existe. Créez d'abord un autre gestionnaire."
+        );
+        return;
+      }
+
+      // Les clients doivent d'abord être réattribués.
+      setSuppressionEnCours(administrateur);
+      setDestinationId("");
       return;
     }
 
@@ -93,6 +110,31 @@ function Administrateurs({
 
     if (confirmation) {
       supprimerAdministrateur(administrateur.id);
+    }
+  }
+
+  function confirmerTransfertEtSuppression() {
+    if (!suppressionEnCours) return;
+
+    if (!destinationId) {
+      alert("Veuillez choisir le gestionnaire qui reprendra les clients.");
+      return;
+    }
+
+    const confirmation = window.confirm(
+      `Transférer les clients de ${suppressionEnCours.nom} puis supprimer son compte ? L'historique des clients (devis, factures, paiements) sera conservé.`
+    );
+
+    if (!confirmation) return;
+
+    const supprime = supprimerAdministrateur(
+      suppressionEnCours.id,
+      Number(destinationId)
+    );
+
+    if (supprime) {
+      setSuppressionEnCours(null);
+      setDestinationId("");
     }
   }
 
@@ -177,6 +219,60 @@ function Administrateurs({
           )}
         </form>
       </div>
+
+      {suppressionEnCours && (
+        <div className="carte">
+          <h2>Supprimer le compte de {suppressionEnCours.nom}</h2>
+
+          <p>
+            {compterClients(suppressionEnCours)} client(s) sont attribués à
+            ce gestionnaire. Réattribuez-les à un autre gestionnaire avant
+            de supprimer le compte. Leur historique (devis, factures,
+            paiements) est conservé.
+          </p>
+
+          <div className="formulaire">
+            <label htmlFor="gestionnaire-destination">
+              Gestionnaire qui reprend les clients
+            </label>
+
+            <select
+              id="gestionnaire-destination"
+              value={destinationId}
+              onChange={(e) => setDestinationId(e.target.value)}
+            >
+              <option value="">Choisir un gestionnaire</option>
+              {administrateurs
+                .filter((item) => item.id !== suppressionEnCours.id)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nom}
+                  </option>
+                ))}
+            </select>
+
+            <button
+              type="button"
+              className="bouton bouton-danger"
+              onClick={confirmerTransfertEtSuppression}
+              disabled={!destinationId}
+            >
+              Transférer les clients et supprimer le compte
+            </button>
+
+            <button
+              type="button"
+              className="bouton petit"
+              onClick={() => {
+                setSuppressionEnCours(null);
+                setDestinationId("");
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="carte">
         <h2>Liste des gestionnaires</h2>

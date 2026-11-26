@@ -258,18 +258,26 @@ function App() {
     (compte) => compte.role === "administrateur"
   );
 
+  // Le rôle est relu depuis la liste des comptes : si le compte connecté
+  // n'existe plus, aucun droit n'est accordé.
+  const compteConnecte = utilisateurConnecte
+    ? comptes.find((compte) => compte.id === utilisateurConnecte.id)
+    : null;
+
   const estAdministrateur =
-    utilisateurConnecte?.role === "administrateur";
+    compteConnecte?.role === "administrateur";
 
   const estGestionnaire =
-    utilisateurConnecte?.role === "gestionnaire";
+    compteConnecte?.role === "gestionnaire";
 
   // DONNÉES VISIBLES SELON LE RÔLE
 
   const clientsVisibles = estAdministrateur
     ? clients
     : clients.filter(
-        (client) => client.gestionnaireId === utilisateurConnecte?.id
+        (client) =>
+          estGestionnaire &&
+          client.gestionnaireId === compteConnecte?.id
       );
 
   const idsClientsVisibles = clientsVisibles.map(
@@ -370,6 +378,7 @@ function App() {
   }
 
   function deconnecter() {
+    setToast(null);
     setUtilisateurConnecte(null);
     setPageAuth("Connexion");
     setPageActive("Accueil");
@@ -393,6 +402,11 @@ function App() {
 
     if (emailExiste) {
       alert("Cette adresse email est déjà utilisée.");
+      return;
+    }
+
+    if (!nouveauCompte.nom || !nouveauCompte.nom.trim()) {
+      alert("Le nom du gestionnaire est obligatoire.");
       return;
     }
 
@@ -447,13 +461,31 @@ function App() {
       return;
     }
 
+    if (!donnees.nom || !donnees.nom.trim()) {
+      alert("Le nom du gestionnaire est obligatoire.");
+      return;
+    }
+
+    if (
+      donnees.motDePasse !== undefined &&
+      donnees.motDePasse.length < 6
+    ) {
+      alert("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    // Seuls le nom, l'email et le mot de passe peuvent être modifiés.
+    // Le rôle et l'identifiant restent inchangés.
     setComptes((anciensComptes) =>
       anciensComptes.map((compte) =>
         compte.id === id && compte.role === "gestionnaire"
           ? {
               ...compte,
-              ...donnees,
+              nom: donnees.nom.trim(),
               email: emailNormalise,
+              ...(donnees.motDePasse !== undefined
+                ? { motDePasse: donnees.motDePasse }
+                : {}),
             }
           : compte
       )
@@ -462,30 +494,72 @@ function App() {
     alert("Les informations du gestionnaire ont été modifiées.");
   }
 
-  function supprimerAdministrateur(id) {
+  // Suppression sécurisée d'un gestionnaire :
+  // - si des clients lui sont attribués, ils doivent être réattribués à un
+  //   autre gestionnaire valide (destinationId) avant la suppression ;
+  // - s'il n'existe aucun autre gestionnaire, la suppression est refusée ;
+  // - les devis, factures, paiements et notifications ne sont jamais
+  //   supprimés : ils restent rattachés aux clients (clientId).
+  // Retourne true si le compte a été supprimé.
+  function supprimerAdministrateur(id, destinationId = null) {
     if (!estAdministrateur) {
       alert("Accès non autorisé.");
-      return;
+      return false;
     }
 
-    const administrateur = comptes.find(
+    const gestionnaireASupprimer = comptes.find(
       (compte) => compte.id === id && compte.role === "gestionnaire"
     );
 
-    if (!administrateur) {
+    if (!gestionnaireASupprimer) {
       alert("Gestionnaire introuvable.");
-      return;
+      return false;
     }
 
-    const nombreClients = clients.filter(
+    const clientsAttribues = clients.filter(
       (client) => client.gestionnaireId === id
-    ).length;
+    );
 
-    if (nombreClients > 0) {
-      alert(
-        "Impossible de supprimer ce gestionnaire : des clients lui sont attribués. Réattribuez d'abord ses clients."
+    if (clientsAttribues.length > 0) {
+      const autresGestionnaires = comptes.filter(
+        (compte) =>
+          compte.role === "gestionnaire" && compte.id !== id
       );
-      return;
+
+      if (autresGestionnaires.length === 0) {
+        alert(
+          "Impossible de supprimer ce gestionnaire : des clients lui sont attribués et aucun autre gestionnaire n'existe. Créez d'abord un autre gestionnaire."
+        );
+        return false;
+      }
+
+      const destinataire = autresGestionnaires.find(
+        (compte) => compte.id === Number(destinationId)
+      );
+
+      if (!destinataire) {
+        alert(
+          "Veuillez choisir un autre gestionnaire valide pour reprendre les clients avant de supprimer ce compte."
+        );
+        return false;
+      }
+
+      setClients((anciensClients) =>
+        anciensClients.map((client) =>
+          client.gestionnaireId === id
+            ? { ...client, gestionnaireId: destinataire.id }
+            : client
+        )
+      );
+
+      setComptes((anciensComptes) =>
+        anciensComptes.filter((compte) => compte.id !== id)
+      );
+
+      alert(
+        `${clientsAttribues.length} client(s) transféré(s) à ${destinataire.nom}. Le compte gestionnaire a été supprimé. L'historique des clients est conservé.`
+      );
+      return true;
     }
 
     setComptes((anciensComptes) =>
@@ -493,6 +567,7 @@ function App() {
     );
 
     alert("Le compte gestionnaire a été supprimé.");
+    return true;
   }
 
   // MODIFICATION DU COMPTE PERSONNEL
@@ -574,43 +649,21 @@ function App() {
 
     // GESTION DES CLIENTS
 
+  // L'Administrateur ne crée pas de clients : seul un Gestionnaire peut
+  // en créer, et le client lui est automatiquement attribué.
   function ajouterClient(client) {
-    if (estAdministrateur) {
-      // L'Administrateur assigne le client à un Gestionnaire
-      const gestionnaire = comptes.find(
-        (compte) =>
-          compte.id === Number(client.gestionnaireId) &&
-          compte.role === "gestionnaire"
-      );
-
-      if (!gestionnaire) {
-        alert("Veuillez choisir un gestionnaire valide.");
-        return;
-      }
-
-      setClients((anciensClients) => [
-        ...anciensClients,
-        {
-          ...client,
-          gestionnaireId: gestionnaire.id,
-        },
-      ]);
+    if (!estGestionnaire || !compteConnecte) {
+      alert("Seul un gestionnaire peut ajouter un client.");
       return;
     }
 
-    if (estGestionnaire) {
-      // Le Gestionnaire s'assigne automatiquement le nouveau client
-      setClients((anciensClients) => [
-        ...anciensClients,
-        {
-          ...client,
-          gestionnaireId: utilisateurConnecte.id,
-        },
-      ]);
-      return;
-    }
-
-    alert("Accès non autorisé.");
+    setClients((anciensClients) => [
+      ...anciensClients,
+      {
+        ...client,
+        gestionnaireId: compteConnecte.id,
+      },
+    ]);
   }
 
   function attribuerClient(clientId, nouvelGestionnaireId) {
@@ -653,7 +706,7 @@ function App() {
   }
 
   function modifierClient(id, donnees) {
-    if (!estGestionnaire) {
+    if (!estGestionnaire || !compteConnecte) {
       alert(
         "Seul un gestionnaire peut modifier les informations d'un client."
       );
@@ -663,7 +716,7 @@ function App() {
     const clientExiste = clients.some(
       (client) =>
         client.id === id &&
-        client.gestionnaireId === utilisateurConnecte.id
+        client.gestionnaireId === compteConnecte.id
     );
 
     if (!clientExiste) {
@@ -677,6 +730,7 @@ function App() {
           ? {
               ...client,
               ...donnees,
+              id: client.id,
               gestionnaireId: client.gestionnaireId,
             }
           : client
@@ -685,17 +739,19 @@ function App() {
   }
 
   function supprimerClient(id) {
-    if (!estAdministrateur) {
-      alert("Seul l'Administrateur peut supprimer un client.");
+    if (!estGestionnaire || !compteConnecte) {
+      alert("Seul un gestionnaire peut supprimer un client.");
       return;
     }
 
     const clientExiste = clients.some(
-      (client) => client.id === id
+      (client) =>
+        client.id === id &&
+        client.gestionnaireId === compteConnecte.id
     );
 
     if (!clientExiste) {
-      alert("Client introuvable.");
+      alert("Client introuvable ou non autorisé.");
       return;
     }
 
@@ -800,10 +856,15 @@ function App() {
       return false;
     }
 
+    if (!estGestionnaire || !compteConnecte) {
+      alert("Accès non autorisé.");
+      return false;
+    }
+
     const clientAutorise = clients.some(
       (client) =>
         client.id === clientId &&
-        client.gestionnaireId === utilisateurConnecte?.id
+        client.gestionnaireId === compteConnecte.id
     );
 
     if (!clientAutorise) {
@@ -949,10 +1010,18 @@ function App() {
 
     if (!autoriserModificationClient(facture.clientId)) return;
 
+    if (
+      donnees.clientId !== undefined &&
+      donnees.clientId !== facture.clientId &&
+      !autoriserModificationClient(donnees.clientId)
+    ) {
+      return;
+    }
+
     setFactures((anciennesFactures) =>
       anciennesFactures.map((item) =>
         item.id === id
-          ? { ...item, ...donnees }
+          ? { ...item, ...donnees, id: item.id }
           : item
       )
     );
@@ -1031,10 +1100,18 @@ function App() {
       return;
     }
 
+    if (
+      donnees.clientId !== undefined &&
+      donnees.clientId !== devisSelectionne.clientId &&
+      !autoriserModificationClient(donnees.clientId)
+    ) {
+      return;
+    }
+
     setDevis((anciensDevis) =>
       anciensDevis.map((item) =>
         item.id === id
-          ? { ...item, ...donnees }
+          ? { ...item, ...donnees, id: item.id }
           : item
       )
     );
@@ -1198,7 +1275,13 @@ function App() {
 
     const nouveauxPaiements = paiements.map((item) =>
       item.id === id
-        ? { ...item, ...donnees, montant: nouveauMontant }
+        ? {
+            ...item,
+            ...donnees,
+            id: item.id,
+            factureId: item.factureId,
+            montant: nouveauMontant,
+          }
         : item
     );
 

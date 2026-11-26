@@ -13,7 +13,6 @@ function Clients({
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
-  const [gestionnaireId, setGestionnaireId] = useState("");
   const [clientEnCours, setClientEnCours] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [filtreTelephone, setFiltreTelephone] = useState("tous");
@@ -31,7 +30,6 @@ function Clients({
     setNom("");
     setEmail("");
     setTelephone("");
-    setGestionnaireId("");
     setClientEnCours(null);
   }
 
@@ -43,8 +41,8 @@ function Clients({
       return;
     }
 
-    if (estAdmin && !gestionnaireId) {
-      alert("Veuillez attribuer ce client à un gestionnaire.");
+    if (!estGestionnaire) {
+      alert("Seul un gestionnaire peut ajouter un client.");
       return;
     }
 
@@ -63,7 +61,6 @@ function Clients({
       nom: nom.trim(),
       email: email.trim(),
       telephone: telephone.trim(),
-      gestionnaireId: estAdmin ? Number(gestionnaireId) : undefined,
     });
 
     reinitialiserFormulaire();
@@ -119,6 +116,11 @@ function Clients({
 
     if (!confirmation) return;
 
+    if (!estAdmin) {
+      alert("Seul l'Administrateur peut réattribuer un client.");
+      return;
+    }
+
     attribuerClient(client.id, Number(nouvelGestionnaireId));
   }
 
@@ -172,73 +174,9 @@ function Clients({
 
       <p className="sous-titre">
         {estAdmin
-          ? "Ajoutez des clients et attribuez-les aux gestionnaires."
+          ? "Consultez tous les clients de l'entreprise et réattribuez-les aux gestionnaires."
           : "Consultez et gérez les clients qui vous sont attribués."}
       </p>
-
-      {/* Formulaire d'ajout pour l'Administrateur */}
-      {estAdmin && (
-        <div className="carte">
-          <h2>Ajouter un client</h2>
-
-          <form onSubmit={gererAjout} className="formulaire">
-            <input
-              type="text"
-              placeholder="Nom complet"
-              value={nom}
-              onChange={(e) => setNom(e.target.value)}
-              required
-            />
-
-            <input
-              type="email"
-              placeholder="Adresse email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-
-            <input
-              type="tel"
-              placeholder="Téléphone"
-              value={telephone}
-              onChange={(e) => setTelephone(e.target.value)}
-            />
-
-            <label htmlFor="gestionnaire-responsable">
-              Gestionnaire responsable
-            </label>
-
-            <select
-              id="gestionnaire-responsable"
-              value={gestionnaireId}
-              onChange={(e) => setGestionnaireId(e.target.value)}
-              required
-            >
-              <option value="">Choisir un gestionnaire</option>
-              {gestionnaires.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.nom}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="submit"
-              className="bouton"
-              disabled={gestionnaires.length === 0}
-            >
-              Ajouter et attribuer le client
-            </button>
-
-            {gestionnaires.length === 0 && (
-              <p className="sous-titre">
-                Créez d'abord un compte gestionnaire.
-              </p>
-            )}
-          </form>
-        </div>
-      )}
 
       {/* Formulaire d'ajout pour le Gestionnaire */}
       {estGestionnaire && (
@@ -419,7 +357,7 @@ function Clients({
                           </button>
                         )}
 
-                        {estAdmin && (
+                        {estGestionnaire && (
                           <button
                             type="button"
                             className="bouton petit bouton-danger"
@@ -428,6 +366,8 @@ function Clients({
                             Supprimer
                           </button>
                         )}
+
+                        {estAdmin && <span>Consultation</span>}
                       </div>
                     </td>
                   </tr>
